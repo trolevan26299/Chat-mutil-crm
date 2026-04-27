@@ -19,7 +19,7 @@
     </div>
 
     <!-- Form -->
-    <v-form @submit.prevent="handleLogin" class="d-flex flex-column gap-3">
+    <v-form @submit.prevent="handleLogin">
       <v-text-field
         v-model="email"
         label="Email"
@@ -27,8 +27,9 @@
         prepend-inner-icon="mdi-email-outline"
         required
         variant="outlined"
-        hide-details="auto"
-        rounded="lg"
+        density="default"
+        clearable
+        class="mb-3"
       />
       <v-text-field
         v-model="password"
@@ -37,9 +38,8 @@
         prepend-inner-icon="mdi-lock-outline"
         required
         variant="outlined"
-        hide-details="auto"
-        rounded="lg"
-        class="mb-4"
+        density="default"
+        class="mb-5"
       />
 
       <v-btn
