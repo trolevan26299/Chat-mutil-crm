@@ -258,6 +258,18 @@ export function useChat() {
     }
   }
 
+  async function undoMessage(messageId: string) {
+    if (!selectedConvId.value) return;
+    try {
+      await api.post(`/conversations/${selectedConvId.value}/messages/${messageId}/undo`);
+      const msg = messages.value.find(m => m.id === messageId);
+      if (msg) msg.isDeleted = true;
+    } catch (err: any) {
+      console.error('Failed to undo message:', err);
+      throw err;
+    }
+  }
+
   function initSocket() {
     socket = io({ transports: ['websocket', 'polling'] });
 
@@ -315,6 +327,7 @@ export function useChat() {
     selectConversation,
     sendMessage,
     sendMessageTo,
+    undoMessage,
     generateAiSuggestion,
     generateAiSummary,
     generateAiSentiment,

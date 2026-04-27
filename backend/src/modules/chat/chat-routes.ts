@@ -489,4 +489,54 @@ export async function chatRoutes(app: FastifyInstance) {
       return reply.status(500).send({ error: error.message || 'Lỗi thả cảm xúc' });
     }
   });
+
+  // ── Undo message ─────────────────────────────────────────────────────────
+  app.post('/api/v1/conversations/:id/messages/:msgId/undo', { preHandler: requireZaloAccess('chat') }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const user = request.user!;
+    const { id, msgId } = request.params as { id: string; msgId: string };
+
+    const conversation = await prisma.conversation.findFirst({
+      where: { id, orgId: user.orgId },
+    });
+    if (!conversation) return reply.status(404).send({ error: 'Conversation not found' });
+
+    const message = await prisma.message.findUnique({
+      where: { id: msgId }
+    });
+    if (!message || message.conversationId !== id || !message.zaloMsgId) {
+      return reply.status(404).send({ error: 'Message not found or not synced with Zalo' });
+    }
+
+    if (message.senderType !== 'self') {
+      return reply.status(403).send({ error: 'Chỉ có thể thu hồi tin nhắn của mình' });
+    }
+
+    const instance = zaloPool.getInstance(conversation.zaloAccountId);
+    if (!instance?.api) return reply.status(400).send({ error: 'Zalo account not connected' });
+
+    try {
+      const threadId = conversation.externalThreadId || '';
+      const payload = {
+        msgId: message.zaloMsgId,
+        cliMsgId: String(message.sentAt.getTime())
+      };
+      
+      const type = conversation.threadType === 'group' ? 1 : 0;
+      await instance.api.undo(payload, threadId, type);
+
+      // Tự động mark isDeleted cho client nhanh nếu cần
+      await prisma.message.update({
+        where: { id: message.id },
+        data: { isDeleted: true, deletedAt: new Date() }
+      });
+
+      const io = (app as any).io as Server;
+      io?.emit('chat:deleted', { accountId: conversation.zaloAccountId, msgId: String(message.zaloMsgId) });
+
+      return reply.send({ success: true });
+    } catch (error: any) {
+      request.log.error('Undo error:', error);
+      return reply.status(500).send({ error: error.message || 'Lỗi thu hồi tin nhắn' });
+    }
+  });
 }

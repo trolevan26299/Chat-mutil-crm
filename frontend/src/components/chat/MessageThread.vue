@@ -9,6 +9,8 @@
     </div>
 
     <template v-else>
+
+
       <!-- Header -->
       <div class="pa-3 d-flex align-center" style="border-bottom: 1px solid var(--border-glow, rgba(0,242,255,0.1));">
         <v-avatar size="36" color="grey-lighten-2" class="mr-3">
@@ -84,13 +86,20 @@
               <button
                 class="action-icon-btn"
                 @click.stop="handleReplyClick(msg)"
-                title="Trả lời"
               >
                 <v-icon size="15">mdi-reply</v-icon>
+                <v-tooltip activator="parent" location="top" open-delay="200" content-class="custom-tooltip">Trả lời</v-tooltip>
+              </button>
+              <button
+                class="action-icon-btn ml-1"
+                @click.stop="handleUndoClick(msg)"
+              >
+                <v-icon size="15">mdi-undo</v-icon>
+                <v-tooltip activator="parent" location="top" open-delay="200" content-class="custom-tooltip">Thu hồi</v-tooltip>
               </button>
               <v-menu location="top" open-on-hover close-on-content-click :open-delay="100">
                 <template v-slot:activator="{ props }">
-                  <button class="action-icon-btn ml-1" v-bind="props" title="Thả cảm xúc">
+                  <button class="action-icon-btn ml-1" v-bind="props">
                     <v-icon size="15">mdi-emoticon-outline</v-icon>
                   </button>
                 </template>
@@ -206,13 +215,13 @@
               <button
                 class="action-icon-btn"
                 @click.stop="handleReplyClick(msg)"
-                title="Trả lời"
               >
                 <v-icon size="15">mdi-reply</v-icon>
+                <v-tooltip activator="parent" location="top" open-delay="200" content-class="custom-tooltip">Trả lời</v-tooltip>
               </button>
               <v-menu location="top" open-on-hover close-on-content-click :open-delay="100">
                 <template v-slot:activator="{ props }">
-                  <button class="action-icon-btn ml-1" v-bind="props" title="Thả cảm xúc">
+                  <button class="action-icon-btn ml-1" v-bind="props">
                     <v-icon size="15">mdi-emoticon-outline</v-icon>
                   </button>
                 </template>
@@ -304,16 +313,18 @@
           <div class="d-flex align-center mt-1 pt-1" style="border-top: 1px dashed rgba(0,242,255,0.1);">
             <v-btn icon color="primary" variant="text" size="small" :class="{'bg-primary-lighten-5': showAiPanel}" @click="toggleAiPanel">
               <v-icon>mdi-robot-outline</v-icon>
-              <v-tooltip activator="parent" location="top" content-class="bg-grey-darken-4 text-white">Bật/tắt Gợi ý AI</v-tooltip>
+              <v-tooltip activator="parent" location="top" open-delay="200" content-class="custom-tooltip">Bật/tắt Gợi ý AI</v-tooltip>
             </v-btn>
             <v-menu v-model="showEmojiPicker" :close-on-content-click="false" location="top" :offset="10">
               <template v-slot:activator="{ props }">
                 <v-btn icon color="grey" variant="text" size="small" class="ml-1" v-bind="props">
                   <v-icon>mdi-emoticon-outline</v-icon>
-                  <v-tooltip activator="parent" location="top" content-class="bg-grey-darken-4 text-white">Chèn Emoji</v-tooltip>
+                  <v-tooltip activator="parent" location="top" open-delay="200" content-class="custom-tooltip">Chèn Emoji</v-tooltip>
                 </v-btn>
               </template>
-              <EmojiPicker :native="true" @select="onSelectEmoji" theme="dark" class="custom-emoji-picker" />
+              <div class="v3-emoji-picker-container shadow-elevation-3">
+                <EmojiPicker :native="true" class="custom-emoji-picker" @select="onSelectEmoji" />
+              </div>
             </v-menu>
 
             <!-- Sticker Picker -->
@@ -321,7 +332,7 @@
               <template v-slot:activator="{ props }">
                 <v-btn icon color="grey" variant="text" size="small" class="ml-1" v-bind="props">
                   <v-icon>mdi-sticker-emoji</v-icon>
-                  <v-tooltip activator="parent" location="top" content-class="bg-grey-darken-4 text-white">Chèn Sticker</v-tooltip>
+                  <v-tooltip activator="parent" location="top" open-delay="200" content-class="custom-tooltip">Chèn Sticker</v-tooltip>
                 </v-btn>
               </template>
               <v-card width="320" height="400" class="d-flex flex-column" style="border-radius:12px;border:1px solid rgba(0,242,255,0.2);background:var(--v-theme-surface);">
@@ -345,11 +356,11 @@
 
             <v-btn icon color="grey" variant="text" size="small" class="ml-1" @click="docInputNative?.click()">
               <v-icon>mdi-paperclip</v-icon>
-              <v-tooltip activator="parent" location="top" content-class="bg-grey-darken-4 text-white">Đính kèm tệp</v-tooltip>
+              <v-tooltip activator="parent" location="top" open-delay="200" content-class="custom-tooltip">Đính kèm tệp</v-tooltip>
             </v-btn>
             <v-btn icon color="grey" variant="text" size="small" class="ml-1" @click="fileInputNative?.click()">
               <v-icon>mdi-image-plus</v-icon>
-              <v-tooltip activator="parent" location="top" content-class="bg-grey-darken-4 text-white">Đính kèm ảnh</v-tooltip>
+              <v-tooltip activator="parent" location="top" open-delay="200" content-class="custom-tooltip">Đính kèm ảnh</v-tooltip>
             </v-btn>
 
             <input type="file" ref="docInputNative" accept="*" multiple style="display: none" @change="onDocSelected" />
@@ -372,6 +383,23 @@
         <img :src="previewImageUrl" alt="Preview" style="max-width: 100%; max-height: 85vh; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);" />
         <div class="text-caption mt-2" style="color: #aaa;">Nhấn để đóng</div>
       </div>
+    </v-dialog>
+
+    <!-- Undo Confirm Dialog -->
+    <v-dialog v-model="undoDialog.show" max-width="400">
+      <v-card class="bg-surface text-on-surface" style="border: 1px solid rgba(0, 242, 255, 0.2); border-radius: 12px; box-shadow: 0 0 15px rgba(0,242,255,0.1);">
+        <v-card-title class="d-flex align-center pt-4 px-4 pb-0">
+          <v-icon color="error" class="mr-2">mdi-delete-empty</v-icon>
+          <span class="text-h6 font-weight-bold">Thu hồi tin nhắn</span>
+        </v-card-title>
+        <v-card-text class="pa-4 pt-3 text-body-1" style="opacity: 0.9;">
+          Bạn có chắc chắn muốn thu hồi tin nhắn này không? Hành động này không thể hoàn thiện lại được.
+        </v-card-text>
+        <v-card-actions class="px-4 pb-4 pt-0 justify-end">
+          <v-btn variant="plain" class="text-on-surface font-weight-bold mr-2" @click="undoDialog.show = false">HỦY</v-btn>
+          <v-btn color="error" variant="flat" :loading="undoDialog.loading" style="border-radius: 8px; font-weight: bold; letter-spacing: 0.5px;" @click="confirmUndo">THU HỒI</v-btn>
+        </v-card-actions>
+      </v-card>
     </v-dialog>
 
     <!-- Sync snackbar -->
@@ -879,6 +907,27 @@ const handleSendReaction = async (msg: Message, zcode: string) => {
   }
 };
 
+const undoDialog = ref({ show: false, loading: false, msgId: '' });
+
+const handleUndoClick = async (msg: Message) => {
+  if (!msg.id || !props.conversation?.id) return;
+  undoDialog.value = { show: true, loading: false, msgId: msg.id };
+};
+
+const confirmUndo = async () => {
+  const msgId = undoDialog.value.msgId;
+  undoDialog.value.loading = true;
+  try {
+    await api.post(`/conversations/${props.conversation!.id}/messages/${msgId}/undo`);
+    undoDialog.value.show = false;
+  } catch (err: any) {
+    console.error('Lỗi khi thu hồi tin nhắn:', err);
+    syncSnack.value = { show: true, text: err.response?.data?.error || 'Không thể thu hồi tin nhắn', color: 'error' };
+  } finally {
+    undoDialog.value.loading = false;
+  }
+};
+
 onMounted(() => {
   if (messagesContainer.value) {
     messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
@@ -1095,4 +1144,32 @@ html.v-theme--light .reaction-badge {
   transform: scale(1.1);
 }
 
+</style>
+
+<style>
+/* Global styles for tooltips since they teleport outside the component */
+.custom-tooltip {
+  background-color: rgb(var(--v-theme-on-surface)) !important;
+  color: rgb(var(--v-theme-surface)) !important;
+  border-radius: 6px;
+  overflow: visible !important;
+  padding: 4px 8px !important;
+  opacity: 0.9 !important;
+  font-weight: 500;
+}
+
+.custom-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: rgb(var(--v-theme-on-surface)) transparent transparent transparent !important;
+  width: 0 !important;
+  height: 0 !important;
+  background-color: transparent !important;
+  display: block;
+}
 </style>
