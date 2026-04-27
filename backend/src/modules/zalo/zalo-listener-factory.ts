@@ -7,6 +7,7 @@ import type { Server } from 'socket.io';
 import { logger } from '../../shared/utils/logger.js';
 import { handleIncomingMessage, handleMessageUndo } from '../chat/message-handler.js';
 import { detectContentType, updateContactAvatar } from './zalo-message-helpers.js';
+import { prisma } from '../../shared/database/prisma-client.js';
 
 // Cached user info entry with 5-minute TTL
 export interface UserInfoCacheEntry {
@@ -194,6 +195,61 @@ export function attachZaloListener(ctx: ListenerContext): void {
     if (msgId) {
       await handleMessageUndo(accountId, String(msgId));
       io?.emit('chat:deleted', { accountId, msgId: String(msgId) });
+    }
+  });
+
+  const handleReactionEvent = async (reaction: any) => {
+    const payload = reaction.data || {};
+    // ID của tin nhắn bị thả cảm xúc nằm trong nội dung rMsg của sự kiện reaction
+    const targetMsgId = String(payload.content?.rMsg?.[0]?.gMsgID || payload.msgId || '');
+    const reactItem = payload.content?.rIcon ?? payload.reactItem ?? '';
+    const uidFrom = String(payload.uidFrom || '');
+
+    logger.info(`[zalo:${accountId}] Reaction PARSED: targetMsgId=${targetMsgId}, reactItem=${reactItem}, uidFrom=${uidFrom}`);
+
+    if (!targetMsgId) return;
+
+    try {
+      const message = await prisma.message.findFirst({
+        where: { zaloMsgId: targetMsgId, conversation: { zaloAccountId: accountId } }
+      });
+      if (!message) return;
+
+      const currentReactions: any[] = Array.isArray(message.reactions) ? message.reactions as any[] : [];
+      let updatedReactions = [...currentReactions];
+
+      if (!reactItem) {
+        // Undo: Xóa tất cả các reaction của người này trên tin nhắn
+        updatedReactions = updatedReactions.filter(r => r.uidFrom !== uidFrom);
+      } else {
+        // Zalo cho thả nhiều sticker/emoji cùng lúc, không xóa cái cũ
+        updatedReactions.push({ uidFrom, reactItem });
+      }
+
+      await prisma.message.update({
+        where: { id: message.id },
+        data: { reactions: updatedReactions }
+      });
+
+      io?.emit('chat:reaction', {
+        accountId,
+        conversationId: message.conversationId,
+        messageId: message.id,
+        zaloMsgId: targetMsgId,
+        reactions: updatedReactions
+      });
+    } catch (err) {
+      logger.error(`[zalo:${accountId}] Reaction update error:`, err);
+    }
+  };
+
+  listener.on('reaction', async (reaction: any) => {
+    await handleReactionEvent(reaction);
+  });
+
+  listener.on('old_reactions', async (reactions: any[], isGroup: boolean) => {
+    for (const reaction of reactions) {
+      await handleReactionEvent(reaction);
     }
   });
 

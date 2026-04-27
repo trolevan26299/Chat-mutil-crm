@@ -87,7 +87,7 @@
               <v-icon size="15">mdi-reply</v-icon>
             </button>
 
-            <div style="max-width: 70%;">
+            <div style="max-width: 70%; position: relative;">
               <div v-if="conversation.threadType === 'group' && msg.senderType !== 'self'" class="text-caption mb-1" style="color: #00F2FF; font-weight: 500;">
                 {{ msg.senderName || 'Unknown' }}
               </div>
@@ -157,6 +157,28 @@
                 <div class="text-caption mt-1 msg-time" :class="msg.senderType === 'self' ? 'msg-time-self' : 'msg-time-contact'" style="font-size: 0.7rem;">
                   {{ formatMessageTime(msg.sentAt) }}
                 </div>
+              </div>
+              
+              <!-- REACTION BADGE -->
+              <div
+                v-if="getReactionSummary(msg)"
+                class="reaction-badge"
+                :class="msg.senderType === 'self' ? 'reaction-self' : 'reaction-contact'"
+                :title="'Reactions: ' + getReactionSummary(msg)!.total"
+              >
+                <span 
+                  v-for="(emoji, i) in getReactionSummary(msg)!.iconPreview" 
+                  :key="i"
+                  style="font-size: 13px; line-height: 1; z-index: 10;"
+                >
+                  {{ emoji }}
+                </span>
+                <span 
+                  v-if="getReactionSummary(msg)!.total > 1" 
+                  class="reaction-count"
+                >
+                  {{ getReactionSummary(msg)!.total }}
+                </span>
               </div>
             </div>
 
@@ -400,6 +422,35 @@ function getQuoteData(msg: Message): any | null {
   if (!msg.attachments || !Array.isArray(msg.attachments)) return null;
   const quoteAttach = msg.attachments.find((a: any) => a.type === 'quote');
   return quoteAttach ? quoteAttach.data : null;
+}
+
+function getReactionSummary(msg: Message) {
+  if (!msg.reactions || !Array.isArray(msg.reactions) || msg.reactions.length === 0) return null;
+  const emojiMap: Record<string, string> = {
+    '/-heart': '❤️', '/-strong': '👍', ':>': '😆', ':o': '😮', ':-((': '😢',
+    ':-h': '😡', ':-*': '😘', ":')": '😂', '/-shit': '💩', '/-rose': '🌹',
+    '/-break': '💔', '/-weak': '👎', ';xx': '😍'
+  };
+
+  const sums: Record<string, number> = {};
+  msg.reactions.forEach(r => {
+    if (r.reactItem) {
+      const e = emojiMap[r.reactItem] || r.reactItem;
+      sums[e] = (sums[e] || 0) + 1;
+    }
+  });
+
+  const uniqueKeys = Object.keys(sums);
+  if (uniqueKeys.length === 0) return null;
+
+  // sort to show most used first visually
+  uniqueKeys.sort((a, b) => sums[b] - sums[a]);
+
+  return {
+    iconPreview: uniqueKeys.slice(0, 3), // return array of strings
+    total: msg.reactions.length,
+    list: sums
+  };
 }
 
 const inputText = ref('');
@@ -920,5 +971,36 @@ watch(() => props.messages.length, async () => { await nextTick(); if (messagesC
   border-left: 3px solid #00F2FF;
   border-radius: 8px;
   gap: 6px;
+}
+
+.reaction-badge {
+  position: absolute;
+  bottom: -10px;
+  display: flex !important;
+  align-items: center;
+  background-color: var(--v-theme-surface);
+  border: 1px solid rgba(150, 150, 150, 0.15);
+  border-radius: 20px;
+  padding: 2px 6px;
+  white-space: nowrap;
+  z-index: 2;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+  cursor: pointer;
+}
+html.v-theme--light .reaction-badge {
+  background-color: #fff;
+}
+.reaction-self {
+  right: 12px;
+}
+.reaction-contact {
+  left: 12px;
+}
+.reaction-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--v-theme-on-surface);
+  opacity: 0.7;
+  margin-left: 2px;
 }
 </style>

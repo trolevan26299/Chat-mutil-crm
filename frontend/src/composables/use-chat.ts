@@ -53,6 +53,7 @@ export interface Message {
   isDeleted: boolean;
   zaloMsgId: string | null;
   attachments?: any[];
+  reactions?: any[];
 }
 
 export function useChat() {
@@ -272,6 +273,13 @@ export function useChat() {
     socket.on('chat:deleted', (data: { msgId: string }) => {
       const msg = messages.value.find(m => m.zaloMsgId === data.msgId);
       if (msg) msg.isDeleted = true;
+    });
+
+    socket.on('chat:reaction', (data: { messageId: string, reactions: any[] }) => {
+      const msg = messages.value.find(m => m.id === data.messageId);
+      if (msg) {
+        msg.reactions = data.reactions;
+      }
     });
   }
 
