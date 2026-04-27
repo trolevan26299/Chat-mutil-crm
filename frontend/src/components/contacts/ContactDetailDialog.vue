@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="show" max-width="680" persistent scrollable>
+  <v-dialog v-model="show" max-width="680" persistent scrollable :fullscreen="isMobile">
     <v-card>
       <v-card-title class="d-flex align-center">
         <span>{{ isNew ? 'Thêm khách hàng' : 'Chi tiết khách hàng' }}</span>
@@ -122,6 +122,9 @@
 import { ref, watch, computed } from 'vue';
 import type { Contact } from '@/composables/use-contacts';
 import { SOURCE_OPTIONS, STATUS_OPTIONS, useContacts } from '@/composables/use-contacts';
+import { useMobile } from '@/composables/use-mobile';
+
+const { isMobile } = useMobile();
 
 const props = defineProps<{
   modelValue: boolean;

@@ -24,7 +24,28 @@
           {{ error }}
         </v-alert>
 
-        <v-card elevation="0" border>
+        <div v-if="isMobile" class="d-flex flex-column gap-3 mb-4">
+          <v-card v-for="item in users" :key="item.id" class="pa-4" elevation="0" border>
+            <div class="d-flex align-center justify-space-between mb-2">
+              <div class="font-weight-bold text-truncate" style="max-width: 65%;">{{ item.fullName || 'Người dùng' }}</div>
+              <v-chip :color="roleColor(item.role)" size="small" variant="flat" class="flex-shrink-0">{{ roleLabel(item.role) }}</v-chip>
+            </div>
+            <div class="text-caption text-grey mb-3 text-truncate">{{ item.email }}</div>
+            <div class="d-flex align-center justify-space-between">
+              <v-chip :color="item.isActive ? 'success' : 'default'" size="small" variant="flat">
+                {{ item.isActive ? 'Hoạt động' : 'Vô hiệu' }}
+              </v-chip>
+              <div class="d-flex gap-2">
+                <v-btn v-if="authStore.isAdmin" icon size="small" variant="tonal" color="primary" @click="openEdit(item)"><v-icon>mdi-pencil</v-icon></v-btn>
+                <v-btn v-if="authStore.isAdmin" icon size="small" variant="tonal" color="warning" @click="openPassword(item)"><v-icon>mdi-lock-reset</v-icon></v-btn>
+                <v-btn v-if="authStore.isOwner && item.id !== authStore.user?.id" icon size="small" variant="tonal" color="error" @click="confirmDelete(item)"><v-icon>mdi-delete</v-icon></v-btn>
+              </div>
+            </div>
+          </v-card>
+          <div v-if="!users.length" class="text-center pa-6 text-grey">Chưa có nhân viên nào</div>
+        </div>
+
+        <v-card v-else elevation="0" border>
           <v-data-table :headers="headers" :items="users" :loading="loading" no-data-text="Chưa có nhân viên nào" fixed-header height="calc(100vh - 240px)">
             <template #item.role="{ item }">
               <v-chip :color="roleColor(item.role)" size="small" variant="flat">{{ roleLabel(item.role) }}</v-chip>
@@ -49,7 +70,7 @@
         </v-card>
 
         <!-- Create dialog -->
-        <v-dialog v-model="showCreate" max-width="440">
+        <v-dialog v-model="showCreate" max-width="440" :fullscreen="isMobile">
           <v-card>
             <v-card-title>Thêm nhân viên</v-card-title>
             <v-card-text>
@@ -68,7 +89,7 @@
         </v-dialog>
 
         <!-- Edit dialog -->
-        <v-dialog v-model="showEdit" max-width="440">
+        <v-dialog v-model="showEdit" max-width="440" :fullscreen="isMobile">
           <v-card>
             <v-card-title>Chỉnh sửa nhân viên</v-card-title>
             <v-card-text>
@@ -132,11 +153,13 @@
 import { ref, onMounted } from 'vue';
 import { useUsers, type OrgUser } from '@/composables/use-users';
 import { useAuthStore } from '@/stores/auth';
+import { useMobile } from '@/composables/use-mobile';
 import TeamManagement from '@/components/settings/TeamManagement.vue';
 import OrgSettings from '@/components/settings/OrgSettings.vue';
 
 const { users, loading, error, fetchUsers, createUser, updateUser, resetPassword, deleteUser } = useUsers();
 const authStore = useAuthStore();
+const { isMobile } = useMobile();
 
 const tab = ref('users');
 const showCreate = ref(false);

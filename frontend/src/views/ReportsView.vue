@@ -1,31 +1,36 @@
 <template>
   <div>
-    <div class="d-flex align-center mb-4 flex-wrap gap-2">
-      <h1 class="text-h4">Báo cáo</h1>
-      <v-spacer />
-      <v-text-field
-        v-model="dateFrom"
-        label="Từ ngày"
-        type="date"
-        density="compact"
-        variant="outlined"
-        style="max-width: 180px;"
-        class="mr-2"
-        hide-details
-      />
-      <v-text-field
-        v-model="dateTo"
-        label="Đến ngày"
-        type="date"
-        density="compact"
-        variant="outlined"
-        style="max-width: 180px;"
-        class="mr-2"
-        hide-details
-      />
-      <v-btn color="primary" prepend-icon="mdi-refresh" :loading="loading" @click="fetchReport">Xem</v-btn>
-      <v-btn color="success" prepend-icon="mdi-file-excel" class="ml-2" :loading="exporting" @click="exportExcel">Xuất Excel</v-btn>
-    </div>
+    <v-row class="mb-2 mt-1" align="center" dense>
+      <v-col cols="12" sm="4" class="d-flex align-center">
+        <h1 class="text-h5 mb-0">Báo cáo</h1>
+      </v-col>
+      <v-col cols="6" sm="3">
+        <v-text-field
+          v-model="dateFrom"
+          label="Từ ngày"
+          type="date"
+          density="compact"
+          variant="outlined"
+          hide-details
+        />
+      </v-col>
+      <v-col cols="6" sm="3">
+        <v-text-field
+          v-model="dateTo"
+          label="Đến ngày"
+          type="date"
+          density="compact"
+          variant="outlined"
+          hide-details
+        />
+      </v-col>
+      <v-col cols="6" sm="1">
+        <v-btn color="primary" block prepend-icon="mdi-refresh" :loading="loading" @click="fetchReport">Xem</v-btn>
+      </v-col>
+      <v-col cols="6" sm="1">
+        <v-btn color="success" block prepend-icon="mdi-file-excel" :loading="exporting" @click="exportExcel">Xuất Excel</v-btn>
+      </v-col>
+    </v-row>
 
     <v-tabs v-model="tab" class="mb-4">
       <v-tab value="messages">Tin nhắn</v-tab>
@@ -40,6 +45,8 @@
           :items="msgData"
           :loading="loading"
           no-data-text="Không có dữ liệu"
+          :hide-default-footer="isMobile"
+          :items-per-page="isMobile ? -1 : 10"
         />
       </v-window-item>
       <v-window-item value="contacts">
@@ -48,6 +55,8 @@
           :items="contactData"
           :loading="loading"
           no-data-text="Không có dữ liệu"
+          :hide-default-footer="isMobile"
+          :items-per-page="isMobile ? -1 : 10"
         />
       </v-window-item>
       <v-window-item value="appointments">
@@ -56,6 +65,8 @@
           :items="aptData"
           :loading="loading"
           no-data-text="Không có dữ liệu"
+          :hide-default-footer="isMobile"
+          :items-per-page="isMobile ? -1 : 10"
         />
       </v-window-item>
     </v-window>
@@ -65,6 +76,9 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { api } from '@/api';
+import { useMobile } from '@/composables/use-mobile';
+
+const { isMobile } = useMobile();
 
 // Date defaults: last 30 days
 const today = new Date();

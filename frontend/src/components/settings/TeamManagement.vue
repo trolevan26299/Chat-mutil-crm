@@ -64,7 +64,7 @@
     </v-expansion-panels>
 
     <!-- Create team dialog -->
-    <v-dialog v-model="showCreate" max-width="400">
+    <v-dialog v-model="showCreate" max-width="400" :fullscreen="isMobile">
       <v-card>
         <v-card-title>Thêm đội nhóm</v-card-title>
         <v-card-text>
@@ -80,7 +80,7 @@
     </v-dialog>
 
     <!-- Edit team dialog -->
-    <v-dialog v-model="showEdit" max-width="400">
+    <v-dialog v-model="showEdit" max-width="400" :fullscreen="isMobile">
       <v-card>
         <v-card-title>Sửa đội nhóm</v-card-title>
         <v-card-text>
@@ -109,7 +109,7 @@
     </v-dialog>
 
     <!-- Add member dialog -->
-    <v-dialog v-model="showAddMember" max-width="420">
+    <v-dialog v-model="showAddMember" max-width="420" :fullscreen="isMobile">
       <v-card>
         <v-card-title>Thêm thành viên</v-card-title>
         <v-card-text>
@@ -138,6 +138,9 @@ import { ref, computed, onMounted } from 'vue';
 import { useTeams, type Team, type TeamMember } from '@/composables/use-teams';
 import { useUsers } from '@/composables/use-users';
 import { useAuthStore } from '@/stores/auth';
+import { useMobile } from '@/composables/use-mobile';
+
+const { isMobile } = useMobile();
 
 const { teams, loading, error, fetchTeams, createTeam, updateTeam, deleteTeam, fetchMembers, addMember, removeMember } = useTeams();
 const { users, fetchUsers } = useUsers();

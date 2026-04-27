@@ -5,7 +5,24 @@
       <v-btn v-if="canManage" color="primary" prepend-icon="mdi-plus" @click="openCreate">Thêm template</v-btn>
     </div>
 
-    <v-data-table :headers="headers" :items="templates" :loading="loading" no-data-text="Chưa có template nào">
+    <div v-if="isMobile" class="d-flex flex-column gap-3 mb-4">
+      <v-card v-for="item in templates" :key="item.id" class="pa-4" elevation="0" border>
+        <div class="d-flex align-center justify-space-between mb-2">
+          <div class="font-weight-bold text-truncate" style="max-width: 70%">{{ item.name }}</div>
+          <v-chip size="small" variant="flat">{{ item.category || 'Chung' }}</v-chip>
+        </div>
+        <div class="text-body-2 text-medium-emphasis mb-3" style="max-height: 40px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
+          {{ item.content }}
+        </div>
+        <div class="d-flex justify-end gap-1">
+          <v-btn v-if="canManage" icon size="small" variant="tonal" color="primary" @click="openEdit(item)"><v-icon>mdi-pencil</v-icon></v-btn>
+          <v-btn v-if="canManage" icon size="small" variant="tonal" color="error" @click="remove(item.id)"><v-icon>mdi-delete</v-icon></v-btn>
+        </div>
+      </v-card>
+      <div v-if="!templates.length" class="text-center pa-6 text-grey">Chưa có template nào</div>
+    </div>
+    
+    <v-data-table v-else :headers="headers" :items="templates" :loading="loading" no-data-text="Chưa có template nào">
       <template #item.content="{ item }">
         <div class="text-body-2 text-medium-emphasis" style="max-width: 480px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
           {{ item.content }}
@@ -13,13 +30,13 @@
       </template>
       <template #item.actions="{ item }">
         <div v-if="canManage">
-          <v-btn icon size="small" @click="openEdit(item)"><v-icon>mdi-pencil</v-icon></v-btn>
-          <v-btn icon size="small" color="error" @click="remove(item.id)"><v-icon>mdi-delete</v-icon></v-btn>
+          <v-btn icon size="small" variant="text" @click="openEdit(item)"><v-icon>mdi-pencil</v-icon></v-btn>
+          <v-btn icon size="small" variant="text" color="error" @click="remove(item.id)"><v-icon>mdi-delete</v-icon></v-btn>
         </div>
       </template>
     </v-data-table>
 
-    <v-dialog v-model="showDialog" max-width="640">
+    <v-dialog v-model="showDialog" max-width="640" :fullscreen="isMobile">
       <v-card>
         <v-card-title>{{ form.id ? 'Sửa template' : 'Tạo template' }}</v-card-title>
         <v-card-text class="d-flex flex-column ga-3">
@@ -40,6 +57,9 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue';
 import type { MessageTemplate } from '@/composables/use-message-templates';
+import { useMobile } from '@/composables/use-mobile';
+
+const { isMobile } = useMobile();
 
 const props = defineProps<{
   templates: MessageTemplate[];

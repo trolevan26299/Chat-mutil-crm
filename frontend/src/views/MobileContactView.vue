@@ -1,5 +1,5 @@
 <template>
-  <div class="mobile-contacts pa-3">
+  <div class="mobile-contacts">
     <!-- Search bar -->
     <v-text-field
       v-model="filters.search"
@@ -15,7 +15,7 @@
     />
 
     <!-- Filter chips -->
-    <div class="d-flex gap-2 mb-3 overflow-x-auto" style="flex-wrap: nowrap;">
+    <div class="d-flex mb-3 overflow-x-auto hide-scrollbar" style="gap: 8px; flex-wrap: nowrap;">
       <v-chip
         v-for="status in STATUS_OPTIONS"
         :key="status.value"
@@ -28,13 +28,14 @@
       </v-chip>
     </div>
 
+
     <!-- Loading -->
     <div v-if="loading" class="d-flex justify-center py-8">
       <v-progress-circular indeterminate color="primary" />
     </div>
 
     <!-- Contact cards -->
-    <div v-else class="d-flex flex-column gap-2">
+    <div v-else class="d-flex flex-column hide-scrollbar" style="gap: 8px;">
       <v-card
         v-for="contact in contacts"
         :key="contact.id"
@@ -134,3 +135,13 @@ function onDeleted() { fetchContacts(); }
 onMounted(() => fetchContacts());
 onUnmounted(() => clearTimeout(searchTimeout));
 </script>
+
+<style scoped>
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+</style>

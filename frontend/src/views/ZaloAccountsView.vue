@@ -6,7 +6,29 @@
       <v-btn color="primary" prepend-icon="mdi-plus" @click="showAddDialog = true">Thêm Zalo</v-btn>
     </div>
 
-    <v-card>
+    <div v-if="isMobile" class="d-flex flex-column gap-3 mb-4">
+      <v-card v-for="item in accounts" :key="item.id" class="pa-4" elevation="0" border>
+        <div class="d-flex align-center justify-space-between mb-2">
+          <div class="font-weight-bold text-body-1 text-truncate" style="max-width: 60%">{{ item.displayName || item.id }}</div>
+          <v-chip :color="statusColor(item.liveStatus || item.status)" size="small" variant="flat" class="flex-shrink-0">
+            {{ statusText(item.liveStatus || item.status) }}
+          </v-chip>
+        </div>
+        <div class="d-flex align-center justify-space-between mt-3">
+          <span class="text-caption text-grey text-truncate d-inline-block mr-2" style="max-width: 100px;">UID: {{ item.zaloUid || '-' }}</span>
+          <div class="d-flex gap-1" style="flex-wrap: wrap; justify-content: flex-end;">
+            <v-btn v-if="authStore.isAdmin" icon size="small" color="primary" variant="tonal" @click="openAccess(item)"><v-icon>mdi-shield-account</v-icon></v-btn>
+            <v-btn icon size="small" color="success" variant="tonal" @click="syncContacts(item.id)" :loading="syncing === item.id"><v-icon>mdi-account-sync</v-icon></v-btn>
+            <v-btn v-if="item.liveStatus !== 'connected'" icon size="small" color="primary" variant="tonal" @click="loginAccount(item.id)"><v-icon>mdi-qrcode</v-icon></v-btn>
+            <v-btn v-if="item.liveStatus === 'disconnected' && item.sessionData" icon size="small" color="info" variant="tonal" @click="reconnectAccount(item.id)"><v-icon>mdi-refresh</v-icon></v-btn>
+            <v-btn icon size="small" color="error" variant="tonal" @click="confirmDelete(item)"><v-icon>mdi-delete</v-icon></v-btn>
+          </div>
+        </div>
+      </v-card>
+      <div v-if="!accounts.length" class="text-center pa-6 text-grey">Chưa có tài khoản Zalo nào</div>
+    </div>
+
+    <v-card v-else>
       <v-data-table :headers="headers" :items="accounts" :loading="loading" no-data-text="Chưa có tài khoản Zalo nào" fixed-header height="calc(100vh - 160px)">
         <template #item.status="{ item }">
           <v-chip :color="statusColor(item.liveStatus || item.status)" size="small" variant="flat">
@@ -34,7 +56,7 @@
     </v-card>
 
     <!-- Add account dialog -->
-    <v-dialog v-model="showAddDialog" max-width="400">
+    <v-dialog v-model="showAddDialog" max-width="400" :fullscreen="isMobile">
       <v-card>
         <v-card-title>Thêm tài khoản Zalo</v-card-title>
         <v-card-text>
@@ -92,6 +114,7 @@
       v-model="showAccessDialog"
       :account-id="accessTarget?.id ?? ''"
       :account-name="accessTarget?.displayName ?? accessTarget?.id ?? ''"
+      :fullscreen="isMobile"
     />
   </div>
 </template>
@@ -100,6 +123,7 @@
 import { ref, onMounted } from 'vue';
 import { useZaloAccounts, type ZaloAccount } from '@/composables/use-zalo-accounts';
 import { useAuthStore } from '@/stores/auth';
+import { useMobile } from '@/composables/use-mobile';
 import ZaloAccessDialog from '@/components/settings/ZaloAccessDialog.vue';
 import { api } from '@/api/index';
 
@@ -112,6 +136,7 @@ const {
 } = useZaloAccounts();
 
 const authStore = useAuthStore();
+const { isMobile } = useMobile();
 
 const showAddDialog = ref(false);
 const syncing = ref<string | null>(null);

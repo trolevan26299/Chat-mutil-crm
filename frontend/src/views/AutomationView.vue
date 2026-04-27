@@ -13,7 +13,28 @@
 
     <v-window v-model="tab">
       <v-window-item value="rules">
-        <v-card>
+        <div v-if="isMobile" class="d-flex flex-column gap-3 mb-4">
+          <v-card v-for="item in rules" :key="item.id" class="pa-4" elevation="0" border>
+            <div class="d-flex align-center justify-space-between mb-2">
+              <div class="font-weight-bold text-truncate" style="max-width: 70%">{{ item.name }}</div>
+              <v-switch :model-value="item.enabled" color="primary" hide-details density="compact" :disabled="!canManage" @update:model-value="toggleRule(item, $event)" />
+            </div>
+            <div class="d-flex align-center gap-2 mb-2">
+              <v-chip size="small" variant="tonal" color="info">{{ triggerLabel(item.trigger) }}</v-chip>
+              <div class="text-caption text-grey">Đã chạy: {{ item.runCount || 0 }} lần</div>
+            </div>
+            <div class="text-caption text-grey mb-3">
+              Gần nhất: {{ item.lastRunAt ? formatDateTime(item.lastRunAt) : 'Chưa chạy' }}
+            </div>
+            <div class="d-flex justify-end gap-1">
+              <v-btn v-if="canManage" icon size="small" variant="tonal" color="primary" @click="openEditRule(item)"><v-icon>mdi-pencil</v-icon></v-btn>
+              <v-btn v-if="canManage" icon size="small" variant="tonal" color="error" @click="deleteRule(item.id)"><v-icon>mdi-delete</v-icon></v-btn>
+            </div>
+          </v-card>
+          <div v-if="!rules.length" class="text-center pa-6 text-grey">Chưa có automation rule nào</div>
+        </div>
+
+        <v-card v-else>
           <v-data-table :headers="ruleHeaders" :items="rules" :loading="rulesLoading" no-data-text="Chưa có automation rule nào">
             <template #item.trigger="{ item }">
               <v-chip size="small" variant="tonal">{{ triggerLabel(item.trigger) }}</v-chip>
@@ -26,8 +47,8 @@
             </template>
             <template #item.actions="{ item }">
               <div v-if="canManage">
-                <v-btn icon size="small" @click="openEditRule(item)"><v-icon>mdi-pencil</v-icon></v-btn>
-                <v-btn icon size="small" color="error" @click="deleteRule(item.id)"><v-icon>mdi-delete</v-icon></v-btn>
+                <v-btn icon size="small" variant="text" @click="openEditRule(item)"><v-icon>mdi-pencil</v-icon></v-btn>
+                <v-btn icon size="small" variant="text" color="error" @click="deleteRule(item.id)"><v-icon>mdi-delete</v-icon></v-btn>
               </div>
             </template>
           </v-data-table>
@@ -64,7 +85,9 @@ import TemplateManager from '@/components/automation/TemplateManager.vue';
 import { useAutomationRules, type AutomationRule } from '@/composables/use-automation-rules';
 import { useMessageTemplates } from '@/composables/use-message-templates';
 import { useAuthStore } from '@/stores/auth';
+import { useMobile } from '@/composables/use-mobile';
 
+const { isMobile } = useMobile();
 const authStore = useAuthStore();
 const canManage = computed(() => authStore.isAdmin);
 const tab = ref('rules');

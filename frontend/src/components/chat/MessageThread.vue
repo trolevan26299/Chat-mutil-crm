@@ -13,6 +13,9 @@
 
       <!-- Header -->
       <div class="pa-3 d-flex align-center message-thread-header">
+        <v-btn v-if="showBack" icon variant="text" size="small" @click="$emit('back')" class="mr-2">
+          <v-icon>mdi-arrow-left</v-icon>
+        </v-btn>
         <v-avatar size="36" color="grey-lighten-2" class="mr-3">
           <v-icon v-if="conversation.threadType === 'group'" icon="mdi-account-group" />
           <v-img v-else-if="conversation.contact?.avatarUrl" :src="conversation.contact.avatarUrl" />
@@ -439,12 +442,14 @@ const props = defineProps<{
   aiSuggestion: string;
   aiSuggestionLoading: boolean;
   aiSuggestionError: string;
+  showBack?: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: 'send', content: string, attachments: any[], sticker?: any, quote?: ReplyQuote): void;
   (e: 'ask-ai'): void;
   (e: 'toggle-contact-panel'): void;
+  (e: 'back'): void;
 }>();
 
 // ── Reply feature ─────────────────────────────────────────────────────────

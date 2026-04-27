@@ -1,34 +1,37 @@
 <template>
   <div>
     <!-- Header -->
-    <div class="d-flex align-center mb-4 flex-wrap gap-2">
-      <h1 class="text-h4">
-        <v-icon class="mr-2" color="primary">mdi-chart-timeline-variant-shimmer</v-icon>
-        Phân tích nâng cao
-      </h1>
-      <v-spacer />
-      <v-text-field
-        v-model="dateFrom"
-        label="Từ ngày"
-        type="date"
-        density="compact"
-        variant="outlined"
-        style="max-width: 180px;"
-        class="mr-2"
-        hide-details
-      />
-      <v-text-field
-        v-model="dateTo"
-        label="Đến ngày"
-        type="date"
-        density="compact"
-        variant="outlined"
-        style="max-width: 180px;"
-        class="mr-2"
-        hide-details
-      />
-      <v-btn color="primary" prepend-icon="mdi-refresh" :loading="loading" @click="fetchAll">Xem</v-btn>
-    </div>
+    <v-row class="mb-2 mt-1" align="center" dense>
+      <v-col cols="12" sm="5" class="d-flex align-center">
+        <h1 class="text-h5 mb-0">
+          <v-icon class="mr-2" color="primary">mdi-chart-timeline-variant-shimmer</v-icon>
+          Phân tích nâng cao
+        </h1>
+      </v-col>
+      <v-col cols="6" sm="3">
+        <v-text-field
+          v-model="dateFrom"
+          label="Từ ngày"
+          type="date"
+          density="compact"
+          variant="outlined"
+          hide-details
+        />
+      </v-col>
+      <v-col cols="6" sm="3">
+        <v-text-field
+          v-model="dateTo"
+          label="Đến ngày"
+          type="date"
+          density="compact"
+          variant="outlined"
+          hide-details
+        />
+      </v-col>
+      <v-col cols="12" sm="1">
+        <v-btn color="primary" block prepend-icon="mdi-refresh" :loading="loading" @click="fetchAll">Xem</v-btn>
+      </v-col>
+    </v-row>
 
     <!-- Tabs -->
     <v-tabs v-model="tab" class="mb-4">

@@ -31,8 +31,36 @@
       />
     </div>
 
+    <!-- Appointment mobile list -->
+    <div v-if="isMobile" class="d-flex flex-column gap-3 mb-4">
+      <v-card v-for="item in activeList" :key="item.id" class="pa-4" elevation="0" border>
+        <div class="d-flex align-center justify-space-between mb-2">
+          <div class="font-weight-bold">{{ item.contact?.fullName ?? '—' }} ({{ item.contact?.phone ?? '' }})</div>
+          <v-chip :color="statusChipColor(item.status)" size="small" variant="flat">{{ statusLabel(item.status) }}</v-chip>
+        </div>
+        <div class="d-flex justify-space-between mt-3 text-caption text-grey">
+          <div>
+            <v-icon size="small" class="mr-1">mdi-calendar-clock</v-icon>
+            {{ formatDate(item.appointmentDate) }} - {{ item.appointmentTime }}
+          </div>
+          <div class="font-weight-medium">{{ typeLabel(item.type) }}</div>
+        </div>
+        <div v-if="item.notes" class="mt-2 text-body-2 text-grey-darken-1">{{ item.notes }}</div>
+        
+        <v-divider class="my-3" />
+        
+        <div class="d-flex gap-2 justify-end">
+          <v-btn v-if="item.status === 'scheduled'" icon size="small" variant="tonal" color="success" title="Hoàn thành" @click.stop="onMarkComplete(item.id)"><v-icon>mdi-check</v-icon></v-btn>
+          <v-btn v-if="item.status === 'scheduled'" icon size="small" variant="tonal" color="warning" title="Huỷ" @click.stop="onCancel(item.id)"><v-icon>mdi-cancel</v-icon></v-btn>
+          <v-btn icon size="small" variant="tonal" color="error" title="Xoá" @click.stop="onDelete(item.id)"><v-icon>mdi-delete</v-icon></v-btn>
+        </div>
+      </v-card>
+      <div v-if="!activeList.length" class="text-center pa-6 text-grey">Không có lịch hẹn nào</div>
+    </div>
+
     <!-- Appointment table -->
-    <v-data-table
+    <v-card v-else>
+      <v-data-table
       :headers="headers"
       :items="activeList"
       :loading="loading"
@@ -98,10 +126,11 @@
           />
         </div>
       </template>
-    </v-data-table>
+      </v-data-table>
+    </v-card>
 
     <!-- Create appointment dialog -->
-    <v-dialog v-model="showCreateDialog" max-width="520" persistent>
+    <v-dialog v-model="showCreateDialog" max-width="520" persistent :fullscreen="isMobile">
       <v-card>
         <v-card-title class="d-flex align-center">
           Tạo lịch hẹn
@@ -160,6 +189,9 @@ import {
   statusLabel,
 } from '@/composables/use-appointments';
 import type { Appointment } from '@/composables/use-appointments';
+import { useMobile } from '@/composables/use-mobile';
+
+const { isMobile } = useMobile();
 
 const {
   appointments, todayAppointments, upcomingAppointments,

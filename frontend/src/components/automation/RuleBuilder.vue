@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="900" @update:model-value="emit('update:modelValue', $event)">
+  <v-dialog :model-value="modelValue" max-width="900" :fullscreen="isMobile" @update:model-value="emit('update:modelValue', $event)">
     <v-card>
       <v-card-title>{{ rule?.id ? 'Sửa automation rule' : 'Tạo automation rule' }}</v-card-title>
       <v-card-text class="d-flex flex-column ga-4">
@@ -36,6 +36,9 @@ import ConditionEditor from './ConditionEditor.vue';
 import ActionEditor from './ActionEditor.vue';
 import type { AutomationAction, AutomationCondition, AutomationRule } from '@/composables/use-automation-rules';
 import type { MessageTemplate } from '@/composables/use-message-templates';
+import { useMobile } from '@/composables/use-mobile';
+
+const { isMobile } = useMobile();
 
 const props = defineProps<{
   modelValue: boolean;

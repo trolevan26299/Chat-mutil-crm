@@ -8,6 +8,8 @@
         :items="rankedUsers"
         density="compact"
         no-data-text="Không có dữ liệu"
+        :hide-default-footer="isMobile"
+        :items-per-page="isMobile ? -1 : 10"
       >
         <template #item.rank="{ item }">
           <v-icon v-if="item.rank === 1" color="amber" size="20">mdi-trophy</v-icon>
@@ -27,6 +29,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { TeamPerformanceData } from '@/composables/use-analytics';
+import { useMobile } from '@/composables/use-mobile';
+
+const { isMobile } = useMobile();
 
 const props = defineProps<{ data: TeamPerformanceData | null }>();
 

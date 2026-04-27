@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="open" max-width="520">
+  <v-dialog v-model="open" max-width="520" :fullscreen="fullscreen">
     <v-card>
       <v-card-title class="d-flex align-center">
         <v-icon class="mr-2" color="cyan">mdi-shield-account</v-icon>
@@ -103,6 +103,7 @@ const props = defineProps<{
   modelValue: boolean;
   accountId: string;
   accountName: string;
+  fullscreen?: boolean;
 }>();
 
 const emit = defineEmits<{

@@ -69,7 +69,7 @@
     </v-card>
 
     <!-- Create/Edit dialog -->
-    <v-dialog v-model="showDialog" max-width="520">
+    <v-dialog v-model="showDialog" max-width="520" :fullscreen="isMobile">
       <v-card>
         <v-card-title>{{ editing ? 'Chỉnh sửa tích hợp' : 'Thêm tích hợp' }}</v-card-title>
         <v-card-text>
@@ -134,6 +134,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { api } from '@/api';
+import { useMobile } from '@/composables/use-mobile';
+
+const { isMobile } = useMobile();
 
 interface SyncLog {
   id: string;

@@ -1,7 +1,7 @@
 <template>
-  <div class="mobile-chat" style="height: calc(100vh - 120px);">
+  <div class="mobile-chat h-100 d-flex flex-column">
     <!-- Conversation list (shown when no conversation selected) -->
-    <div v-if="!selectedConvId" style="height: 100%;">
+    <div v-if="!selectedConvId" class="flex-grow-1 overflow-hidden" style="position: relative;">
       <ConversationList
         :conversations="conversations"
         :selected-id="selectedConvId"
@@ -13,48 +13,69 @@
     </div>
 
     <!-- Message thread (shown when conversation selected) -->
-    <div v-else style="height: 100%; display: flex; flex-direction: column;">
-      <!-- Back button bar -->
-      <div class="d-flex align-center pa-2" style="flex-shrink: 0;">
-        <v-btn icon variant="text" size="small" @click="goBack">
-          <v-icon>mdi-arrow-left</v-icon>
-        </v-btn>
-        <span v-if="selectedConv" class="text-body-2 font-weight-medium ml-1">
-          {{ selectedConv.contact?.fullName || 'Chat' }}
-        </span>
-      </div>
+    <div v-else class="flex-grow-1 d-flex flex-column overflow-hidden" style="position: relative;">
 
       <MessageThread
         :conversation="selectedConv"
         :messages="allMessages"
         :loading="loadingMsgs"
         :sending="sendingMsg"
-        :show-contact-panel="false"
+        :show-contact-panel="showContactPanel"
         :ai-suggestion="(null as any)"
         :ai-suggestion-loading="false"
         :ai-suggestion-error="(null as any)"
+        show-back
+        @back="goBack"
+        @toggle-contact-panel="showContactPanel = true"
         @send="handleSend"
         style="flex: 1; min-height: 0;"
       />
     </div>
+
+    <v-navigation-drawer
+      v-model="showContactPanel"
+      location="right"
+      temporary
+      width="320"
+      class="bg-surface"
+    >
+      <ChatContactPanel
+        v-if="showContactPanel && selectedConv?.contact"
+        :contact-id="selectedConv.contact.id"
+        :contact="selectedConv.contact"
+        :ai-summary="aiSummary"
+        :ai-summary-loading="aiSummaryLoading"
+        :ai-sentiment="aiSentiment"
+        :ai-sentiment-loading="aiSentimentLoading"
+        @refresh-ai-summary="generateAiSummary"
+        @refresh-ai-sentiment="generateAiSentiment"
+        @close="showContactPanel = false"
+        @saved="fetchConversations()"
+      />
+    </v-navigation-drawer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, watch, computed } from 'vue';
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import ConversationList from '@/components/chat/ConversationList.vue';
 import MessageThread from '@/components/chat/MessageThread.vue';
+import ChatContactPanel from '@/components/chat/ChatContactPanel.vue';
 import { useChat } from '@/composables/use-chat';
 import { useOfflineQueue } from '@/composables/use-offline-queue';
 
 const {
   conversations, selectedConvId, selectedConv, messages,
   loadingConvs, loadingMsgs, sendingMsg, searchQuery, accountFilter,
+  aiSummary, aiSummaryLoading, aiSentiment, aiSentimentLoading,
   fetchConversations, selectConversation, sendMessage, sendMessageTo,
+  generateAiSummary, generateAiSentiment,
   initSocket, destroySocket,
 } = useChat();
 
 const { pendingMessages, enqueue, flush } = useOfflineQueue();
+
+const showContactPanel = ref(false);
 
 function onFilterAccount(id: string | null) {
   accountFilter.value = id;
