@@ -1,24 +1,34 @@
 <template>
-  <v-card class="pa-8" style="backdrop-filter: blur(20px);" elevation="0">
+  <v-card class="login-card pa-10" elevation="0">
+
+    <!-- Logo + Brand -->
     <div class="text-center mb-8">
-      <div
-        class="ai-core-orb mx-auto mb-4 d-flex align-center justify-center"
-        style="width: 64px; height: 64px; background: linear-gradient(135deg, #00F2FF, #0077B6);"
-      >
-        <v-icon size="32" color="white">mdi-robot</v-icon>
+      <div class="logo-wrap mx-auto mb-5">
+        <div class="logo-ring" />
+        <div class="logo-orb d-flex align-center justify-center">
+          <v-icon size="28" color="white">mdi-message-text</v-icon>
+        </div>
       </div>
-      <h1 class="text-h5 font-weight-bold">Zalo<span style="color: #00F2FF;">CRM</span></h1>
-      <p class="text-caption mt-1" style="color: #8892b0;">Liquid Silicon • Multi-Account Zalo Management</p>
+
+      <h1 class="brand-name mb-1">
+        Zalo<span class="brand-accent">CRM</span>
+      </h1>
+      <p class="text-caption brand-sub">
+        Multi-Account Zalo Management Platform
+      </p>
     </div>
 
-    <v-form @submit.prevent="handleLogin">
+    <!-- Form -->
+    <v-form @submit.prevent="handleLogin" class="d-flex flex-column gap-3">
       <v-text-field
         v-model="email"
         label="Email"
         type="email"
         prepend-inner-icon="mdi-email-outline"
         required
-        class="mb-3"
+        variant="outlined"
+        hide-details="auto"
+        rounded="lg"
       />
       <v-text-field
         v-model="password"
@@ -26,15 +36,35 @@
         type="password"
         prepend-inner-icon="mdi-lock-outline"
         required
-        class="mb-5"
+        variant="outlined"
+        hide-details="auto"
+        rounded="lg"
+        class="mb-4"
       />
-      <v-btn type="submit" color="primary" block size="large" :loading="loading" rounded="xl">
-        <v-icon start>mdi-login</v-icon>
+
+      <v-btn
+        type="submit"
+        color="primary"
+        block
+        size="large"
+        :loading="loading"
+        rounded="lg"
+        class="login-btn"
+      >
+        <v-icon start size="18">mdi-login</v-icon>
         Đăng nhập
       </v-btn>
     </v-form>
 
-    <v-alert v-if="error" type="error" class="mt-4" density="compact" closable variant="tonal">
+    <v-alert
+      v-if="error"
+      type="error"
+      class="mt-4"
+      density="compact"
+      closable
+      variant="tonal"
+      rounded="lg"
+    >
       {{ error }}
     </v-alert>
   </v-card>
@@ -72,3 +102,102 @@ async function handleLogin() {
   }
 }
 </script>
+
+<style scoped>
+.login-card {
+  background: rgba(30, 41, 59, 0.75) !important;
+  backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(59, 130, 246, 0.15) !important;
+  border-radius: 24px !important;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.15) !important;
+}
+
+.v-theme--light .login-card {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border: 1px solid rgba(37, 99, 235, 0.12) !important;
+  box-shadow: 0 24px 48px rgba(37, 99, 235, 0.08) !important;
+}
+
+/* Logo ring animation */
+.logo-wrap {
+  position: relative;
+  width: 72px;
+  height: 72px;
+}
+
+.logo-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #3B82F6, #6366F1, #059669, #3B82F6);
+  animation: spin 4s linear infinite;
+  padding: 2px;
+}
+
+.logo-ring::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  background: #0F172A;
+}
+
+.v-theme--light .logo-ring::after {
+  background: #F8FAFC;
+}
+
+.logo-orb {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3B82F6, #6366F1);
+  z-index: 1;
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Brand text */
+.brand-name {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #F1F5F9;
+}
+.v-theme--light .brand-name {
+  color: #0F172A;
+}
+
+.brand-accent {
+  background: linear-gradient(90deg, #3B82F6, #6366F1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.brand-sub {
+  color: #64748B;
+  letter-spacing: 0.3px;
+  font-size: 14px !important;
+}
+.login-btn {
+  height: 52px !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em;
+}
+
+/* Login button */
+.login-btn {
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.35) !important;
+  transition: all 200ms ease !important;
+}
+.login-btn:hover {
+  box-shadow: 0 6px 28px rgba(59, 130, 246, 0.5) !important;
+  transform: translateY(-1px);
+}
+</style>

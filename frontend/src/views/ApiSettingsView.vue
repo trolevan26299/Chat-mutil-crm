@@ -1,14 +1,14 @@
 <template>
   <div style="max-width: 700px;">
     <h1 class="text-h5 mb-4">
-      <v-icon class="mr-2" style="color: #00F2FF;">mdi-api</v-icon>
+      <v-icon class="mr-2" color="primary">mdi-api</v-icon>
       API & Webhook
     </h1>
 
     <!-- API Key section -->
-    <v-card class="mb-4">
-      <v-card-title class="text-body-1">API Key</v-card-title>
-      <v-card-text>
+    <v-card class="mb-6" elevation="0" border>
+      <v-card-title class="text-h6 px-6 pt-6 pb-2">API Key</v-card-title>
+      <v-card-text class="px-6 pb-6">
         <v-text-field
           v-model="apiKey"
           label="API Key"
@@ -29,9 +29,9 @@
     </v-card>
 
     <!-- Webhook section -->
-    <v-card class="mb-4">
-      <v-card-title class="text-body-1">Webhook</v-card-title>
-      <v-card-text>
+    <v-card class="mb-6" elevation="0" border>
+      <v-card-title class="text-h6 px-6 pt-6 pb-2">Webhook</v-card-title>
+      <v-card-text class="px-6 pb-6">
         <v-text-field
           v-model="webhookUrl"
           label="Webhook URL"
@@ -51,13 +51,13 @@
       </v-card-text>
     </v-card>
 
-    <v-card class="mb-4">
-      <v-card-title class="text-body-1 d-flex align-center">
+    <v-card class="mb-6" elevation="0" border>
+      <v-card-title class="text-h6 px-6 pt-6 pb-2 d-flex align-center">
         AI Assistant
         <v-spacer />
         <v-btn color="primary" variant="outlined" @click="showAiConfig = true">Cấu hình AI</v-btn>
       </v-card-title>
-      <v-card-text>
+      <v-card-text class="px-6 pb-6">
         <div class="text-body-2">Provider: <strong>{{ aiConfig.provider }}</strong></div>
         <div class="text-body-2">Model: <strong>{{ aiConfig.model }}</strong></div>
         <div class="text-body-2">Quota/ngày: <strong>{{ aiConfig.maxDaily }}</strong></div>
@@ -65,10 +65,9 @@
       </v-card-text>
     </v-card>
 
-    <!-- API Docs -->
-    <v-card>
-      <v-card-title class="text-body-1">API Documentation</v-card-title>
-      <v-card-text>
+    <v-card class="mb-6" elevation="0" border>
+      <v-card-title class="text-h6 px-6 pt-6 pb-2">API Documentation</v-card-title>
+      <v-card-text class="px-6 pb-6">
         <pre style="font-size: 12px; overflow-x: auto; white-space: pre-wrap;">Header: X-API-Key: your-key
 
 GET  /api/public/contacts

@@ -12,7 +12,7 @@
 
 
       <!-- Header -->
-      <div class="pa-3 d-flex align-center" style="border-bottom: 1px solid var(--border-glow, rgba(0,242,255,0.1));">
+      <div class="pa-3 d-flex align-center message-thread-header">
         <v-avatar size="36" color="grey-lighten-2" class="mr-3">
           <v-icon v-if="conversation.threadType === 'group'" icon="mdi-account-group" />
           <v-img v-else-if="conversation.contact?.avatarUrl" :src="conversation.contact.avatarUrl" />
@@ -112,12 +112,16 @@
             </div>
 
             <div style="max-width: 70%; position: relative;">
-              <div v-if="conversation.threadType === 'group' && msg.senderType !== 'self'" class="text-caption mb-1" style="color: #00F2FF; font-weight: 500;">
+              <div v-if="conversation.threadType === 'group' && msg.senderType !== 'self'" class="text-caption mb-1" style="color: var(--color-primary); font-weight: 600; letter-spacing: 0.01em;">
                 {{ msg.senderName || 'Unknown' }}
               </div>
-              <div class="message-bubble pa-2 px-3 rounded-lg" :class="msg.senderType === 'self' ? 'bg-primary text-white' : 'bg-white'" style="word-wrap: break-word;">
+              <div
+                class="message-bubble pa-2 px-3"
+                :class="msg.senderType === 'self' ? 'message-bubble-self' : 'message-bubble-other'"
+                style="word-wrap: break-word;"
+              >
                 <!-- Quoted Message (Reply snippet at top of bubble) -->
-                <div v-if="!msg.isDeleted && getQuoteData(msg)" class="mb-1 pa-2 rounded" style="background: var(--v-theme-surface); border-left: 3px solid rgba(0, 242, 255, 0.5); font-size: 0.8rem; line-height: 1.3; opacity: 0.85;">
+                <div v-if="!msg.isDeleted && getQuoteData(msg)" class="mb-1 pa-2 rounded" style="background: rgba(0,0,0,0.12); border-left: 3px solid var(--color-primary); font-size: 0.8rem; line-height: 1.3; opacity: 0.9;">
                   <div class="font-weight-bold text-truncate" style="max-width: 200px;">{{ getQuoteData(msg)?.fromDName || getQuoteData(msg)?.uidFrom || 'Người dùng' }}</div>
                   <div class="text-truncate" style="max-width: 200px;">{{ getQuoteData(msg)?.textPreview || '(tin nhắn)' }}</div>
                 </div>
@@ -255,7 +259,7 @@
         <div v-if="replyTo" class="reply-preview d-flex align-center px-3 py-2">
           <v-icon size="16" color="primary" class="mr-2">mdi-reply</v-icon>
           <div class="flex-grow-1 text-truncate">
-            <span class="text-caption font-weight-bold" style="color: #00F2FF;">{{ replyTo.senderType === 'self' ? 'Bạn' : (replyTo.senderName || 'Người dùng') }}</span>
+            <span class="text-caption font-weight-bold" style="color: var(--color-primary);">{{ replyTo.senderType === 'self' ? 'Bạn' : (replyTo.senderName || 'Người dùng') }}</span>
             <span class="text-caption ml-1" style="opacity: 0.7;">{{ getReplyPreviewText(replyTo) }}</span>
           </div>
           <v-btn icon size="x-small" variant="text" @click="clearReply">
@@ -263,7 +267,7 @@
           </v-btn>
         </div>
         
-        <div class="d-flex flex-column justify-end pa-2" style="background: var(--v-theme-surface); border: 1px solid var(--border-glow, rgba(0,242,255,0.2)); border-radius: 12px; position: relative;">
+        <div class="d-flex flex-column justify-end pa-2" style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 12px; position: relative;">
           <QuickTemplatePopup
             ref="popupRef"
             :visible="showTemplatePopup"
@@ -275,13 +279,13 @@
           />
           
           <!-- Attachments preview (inside wrapper) -->
-          <div v-if="selectedAttachments.length > 0" class="d-flex flex-wrap pa-2 mb-2" style="background: rgba(0,242,255,0.05); border: 1px solid rgba(0,242,255,0.3); border-radius: 8px; gap: 8px;">
+          <div v-if="selectedAttachments.length > 0" class="d-flex flex-wrap pa-2 mb-2" style="background: var(--bg-surface-2); border: 1px solid var(--border-color); border-radius: 8px; gap: 8px;">
             <div v-for="(att, index) in selectedAttachments" :key="index" style="position: relative;">
               <template v-if="att.type === 'image'">
-                <img :src="att.base64" style="height: 64px; max-width: 120px; object-fit: contain; border-radius: 8px; border: 1px solid rgba(0,242,255,0.3);" />
+                <img :src="att.base64" style="height: 64px; max-width: 120px; object-fit: contain; border-radius: 8px; border: 1px solid var(--border-color);" />
               </template>
               <template v-else>
-                <div class="d-flex align-center pa-2" style="background: var(--v-theme-surface); border: 1px solid rgba(0,242,255,0.3); border-radius: 8px; width: 220px; max-width: 100%;">
+                <div class="d-flex align-center pa-2" style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; width: 220px; max-width: 100%;">
                   <v-icon size="24" color="info" class="mr-2">mdi-file-document</v-icon>
                   <div class="text-truncate pr-3 flex-grow-1">
                     <div class="text-caption font-weight-medium text-truncate">{{ att.filename }}</div>
@@ -310,7 +314,7 @@
           />
           
           <!-- Toolbar -->
-          <div class="d-flex align-center mt-1 pt-1" style="border-top: 1px dashed rgba(0,242,255,0.1);">
+          <div class="d-flex align-center mt-1 pt-1" style="border-top: 1px dashed var(--border-color);">
             <v-btn icon color="primary" variant="text" size="small" :class="{'bg-primary-lighten-5': showAiPanel}" @click="toggleAiPanel">
               <v-icon>mdi-robot-outline</v-icon>
               <v-tooltip activator="parent" location="top" open-delay="200" content-class="custom-tooltip">Bật/tắt Gợi ý AI</v-tooltip>
@@ -335,7 +339,7 @@
                   <v-tooltip activator="parent" location="top" open-delay="200" content-class="custom-tooltip">Chèn Sticker</v-tooltip>
                 </v-btn>
               </template>
-              <v-card width="320" height="400" class="d-flex flex-column" style="border-radius:12px;border:1px solid rgba(0,242,255,0.2);background:var(--v-theme-surface);">
+              <v-card width="320" height="400" class="d-flex flex-column" style="border-radius:12px;border:1px solid var(--border-color);background:var(--bg-surface);">
                 <v-card-text class="pa-2 flex-grow-0">
                   <v-text-field v-model="stickerQuery" density="compact" variant="outlined" hide-details placeholder="Tìm sticker..." prepend-inner-icon="mdi-magnify" clearable @update:model-value="onStickerSearch" />
                 </v-card-text>
@@ -992,9 +996,9 @@ watch(() => props.messages.length, async () => { await nextTick(); if (messagesC
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 12px !important;
-  color: var(--v-theme-on-surface);
+  color: var(--text-primary);
 }
-.file-card { display: flex; align-items: center; padding: 8px 12px; border-radius: 8px; background: rgba(0, 242, 255, 0.05); border: 1px solid rgba(0, 242, 255, 0.1); }
+.file-card { display: flex; align-items: center; padding: 8px 12px; border-radius: 8px; background: var(--bg-surface-2); border: 1px solid var(--border-color); }
 .sticker-img { width: 120px; height: 120px; object-fit: contain; border-radius: 8px; }
 .chat-image { max-width: 100%; max-height: 300px; border-radius: 12px; cursor: pointer; transition: transform 0.2s; }
 .chat-image:hover { transform: scale(1.02); }
@@ -1058,24 +1062,18 @@ watch(() => props.messages.length, async () => { await nextTick(); if (messagesC
 }
 
 .msg-context-item:hover {
-  background: rgba(0, 242, 255, 0.12);
-  color: #00F2FF;
+  background: var(--bg-hover);
+  color: var(--color-primary);
 }
 
-/* Reply preview banner above input */
-.reply-preview {
-  background: rgba(0, 242, 255, 0.07);
-  border-left: 3px solid #00F2FF;
-  border-radius: 8px;
-  gap: 6px;
-}
+
 
 .reaction-badge {
   position: absolute;
   bottom: -10px;
   display: flex !important;
   align-items: center;
-  background-color: var(--v-theme-surface);
+  background-color: var(--bg-surface);
   border: 1px solid rgba(150, 150, 150, 0.15);
   border-radius: 20px;
   padding: 2px 6px;
@@ -1105,7 +1103,7 @@ html.v-theme--light .reaction-badge {
 }
 
 .action-icon-btn {
-  background: var(--v-theme-surface);
+  background: var(--bg-surface);
   border: 1px solid rgba(150, 150, 150, 0.15);
   border-radius: 50%;
   width: 28px;
@@ -1114,7 +1112,7 @@ html.v-theme--light .reaction-badge {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: var(--v-theme-on-surface);
+  color: var(--text-primary);
   opacity: 0.6;
   transition: all 0.2s;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -1146,30 +1144,4 @@ html.v-theme--light .reaction-badge {
 
 </style>
 
-<style>
-/* Global styles for tooltips since they teleport outside the component */
-.custom-tooltip {
-  background-color: rgb(var(--v-theme-on-surface)) !important;
-  color: rgb(var(--v-theme-surface)) !important;
-  border-radius: 6px;
-  overflow: visible !important;
-  padding: 4px 8px !important;
-  opacity: 0.9 !important;
-  font-weight: 500;
-}
 
-.custom-tooltip::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  margin-left: -5px;
-  border-width: 5px;
-  border-style: solid;
-  border-color: rgb(var(--v-theme-on-surface)) transparent transparent transparent !important;
-  width: 0 !important;
-  height: 0 !important;
-  background-color: transparent !important;
-  display: block;
-}
-</style>

@@ -1,11 +1,13 @@
 <template>
   <v-row>
     <v-col v-for="card in cards" :key="card.title" cols="6" sm="4" md="2">
-      <v-card variant="outlined">
-        <v-card-text class="text-center pa-3">
-          <v-icon :icon="card.icon" :color="card.color" size="32" class="mb-1" />
-          <div class="text-h5 font-weight-bold">{{ card.value }}</div>
-          <div class="text-caption text-grey">{{ card.title }}</div>
+      <v-card class="kpi-card" elevation="0" style="border: 1px solid var(--border-color); border-radius: 16px; background: var(--bg-surface); transition: all 0.3s ease;">
+        <v-card-text class="text-left pa-5">
+          <div class="d-flex align-center justify-space-between mb-3">
+            <v-icon :icon="card.icon" :color="card.color" size="32" />
+          </div>
+          <div class="text-h4 font-weight-black" style="color: var(--text-primary); line-height: 1.2;">{{ card.value }}</div>
+          <div class="text-caption text-uppercase font-weight-bold mt-1" style="color: var(--text-secondary); letter-spacing: 0.03em;">{{ card.title }}</div>
         </v-card-text>
       </v-card>
     </v-col>

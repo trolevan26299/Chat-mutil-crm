@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="d-flex align-center mb-4 flex-wrap gap-2">
       <h1 class="text-h4">
-        <v-icon class="mr-2" style="color: #00F2FF;">mdi-chart-timeline-variant-shimmer</v-icon>
+        <v-icon class="mr-2" color="primary">mdi-chart-timeline-variant-shimmer</v-icon>
         Phân tích nâng cao
       </h1>
       <v-spacer />

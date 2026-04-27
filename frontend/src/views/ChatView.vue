@@ -177,7 +177,7 @@ watch(searchQuery, () => {
 
 .resize-handle:hover,
 .resize-handle:active {
-  background: rgba(0, 242, 255, 0.3);
+  background: rgba(59, 130, 246, 0.35);
 }
 
 .resize-handle-left {

@@ -1,5 +1,5 @@
 <template>
-  <div class="conversation-list d-flex flex-column" style="width: 100%; border-right: 1px solid var(--border-glow, rgba(0,242,255,0.1)); height: 100%;">
+  <div class="conversation-list d-flex flex-column" style="width: 100%; border-right: 1px solid var(--border-color); height: 100%;">
     <!-- Account filter + Search -->
     <div class="pa-2">
       <v-select
@@ -178,8 +178,7 @@
         @click="$emit('select', conv.id)"
         @contextmenu.prevent="openContextMenu($event, conv)"
         class="py-2"
-        :class="{ 'conversation-active': conv.id === selectedId, 'bg-blue-lighten-5': conv.unreadCount > 0 && conv.id !== selectedId }"
-      >
+        :class="{ 'conversation-active': conv.id === selectedId, 'conv-unread': conv.unreadCount > 0 && conv.id !== selectedId }"      >
         <template #prepend>
           <v-avatar size="40" color="grey-lighten-2">
             <v-icon v-if="conv.threadType === 'group'" icon="mdi-account-group" />

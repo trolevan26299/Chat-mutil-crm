@@ -2,7 +2,7 @@
   <div>
     <div class="d-flex align-center mb-4">
       <h1 class="text-h4">
-        <v-icon class="mr-2" style="color: #00F2FF;">mdi-connection</v-icon>
+        <v-icon class="mr-2" color="primary">mdi-connection</v-icon>
         Tích hợp
       </h1>
       <v-spacer />

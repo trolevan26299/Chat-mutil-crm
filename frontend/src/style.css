@@ -1,296 +1,494 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Zalo CRM – Global CSS
+   Design System: UI UX Pro Max Skill – Category 92 (Chat & Messaging) +
+                  Category 101 (CRM & Client Management)
+   Palette: Blue (#2563EB / #3B82F6) + Emerald CTA (#059669) + Slate surfaces
+   Typography: Inter (Google Fonts)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ─── Color Design Tokens ─────────────────────────────────────────────────── */
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  /* Dark mode tokens (default) */
+  --bg-base:        #0F172A;
+  --bg-surface:     #1E293B;
+  --bg-surface-2:   #334155;
+  --bg-hover:       #273548;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  --border-color:   #334155;
+  --border-glow:    rgba(59, 130, 246, 0.2);
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --text-primary:   #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted:     #64748B;
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  --color-primary:  #3B82F6;
+  --color-primary-hover: #2563EB;
+  --color-secondary: #6366F1;
+  --color-accent:   #059669;
+  --color-online:   #22C55E;
+  --color-error:    #EF4444;
+  --color-warning:  #F59E0B;
+
+  /* Chat bubbles – dark */
+  --bubble-self-bg:   #1D4ED8;
+  --bubble-self-text: #F1F5F9;
+  --bubble-other-bg:  #1E293B;
+  --bubble-other-text:#E2E8F0;
+
+  /* Scrollbar */
+  --scrollbar-thumb: #334155;
+  --scrollbar-track: #0F172A;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+
+  /* Typography */
+  --font-sans: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+/* ─── Light Mode Tokens ────────────────────────────────────────────────────── */
+.v-theme--light {
+  --bg-base:        #F8FAFC;
+  --bg-surface:     #FFFFFF;
+  --bg-surface-2:   #F1F5F9;
+  --bg-hover:       #EFF6FF;
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
+  --border-color:   #E2E8F0;
+  --border-glow:    rgba(37, 99, 235, 0.15);
+
+  --text-primary:   #0F172A;
+  --text-secondary: #475569;
+  --text-muted:     #94A3B8;
+
+  --color-primary:  #2563EB;
+  --color-primary-hover: #1D4ED8;
+  --color-online:   #16A34A;
+
+  --bubble-self-bg:   var(--color-primary);
+  --bubble-self-text: #FFFFFF;
+  --bubble-other-bg:  #F1F5F9;
+  --bubble-other-text:#0F172A;
+
+  --scrollbar-thumb: #CBD5E1;
+  --scrollbar-track: #F8FAFC;
 }
 
-body {
-  margin: 0;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
-}
-
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-  margin-bottom: 24px;
-
-  &:hover {
-    border-color: var(--accent-border);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-}
-
-.hero {
-  position: relative;
-
-  .base,
-  .framework,
-  .vite {
-    inset-inline: 0;
-    margin: 0 auto;
-  }
-
-  .base {
-    width: 170px;
-    position: relative;
-    z-index: 0;
-  }
-
-  .framework,
-  .vite {
-    position: absolute;
-  }
-
-  .framework {
-    z-index: 1;
-    top: 34px;
-    height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
-
-  .vite {
-    z-index: 0;
-    top: 107px;
-    height: 26px;
-    width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
-  }
-}
-
-#app {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
+/* ─── Global Reset & Typography ───────────────────────────────────────────── */
+*, *::before, *::after {
   box-sizing: border-box;
 }
 
-#center {
+html, body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ─── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+/* ─── Vuetify Overrides ───────────────────────────────────────────────────── */
+
+/* App Bar */
+.v-app-bar {
+  border-bottom: 1px solid var(--border-color) !important;
+  backdrop-filter: blur(12px);
+}
+
+/* Navigation Drawer */
+.v-navigation-drawer {
+  border-right: 1px solid var(--border-color) !important;
+}
+
+.v-navigation-drawer .v-list-item {
+  border-radius: 8px !important;
+  margin: 2px 8px !important;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.v-navigation-drawer .v-list-item:hover:not(.v-list-item--active) {
+  background: var(--bg-hover) !important;
+}
+
+.v-navigation-drawer .v-list-item--active {
+  background: rgba(59, 130, 246, 0.12) !important;
+  color: var(--color-primary) !important;
+  border-left: 3px solid var(--color-primary);
+}
+
+.v-theme--light .v-navigation-drawer .v-list-item--active {
+  background: rgba(37, 99, 235, 0.08) !important;
+  color: #2563EB !important;
+  border-left: 3px solid #2563EB;
+}
+
+/* Buttons */
+.v-btn {
+  font-family: var(--font-sans) !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.01em !important;
+  transition: all var(--transition-fast) !important;
+}
+
+.v-btn:not(.v-btn--icon):hover {
+  filter: brightness(1.08);
+}
+
+.v-btn.v-btn--icon {
+  border-radius: 50% !important;
+}
+
+.v-btn.v-btn--icon:hover {
+  background: var(--bg-hover) !important;
+}
+
+/* Cards */
+.v-card {
+  border: 1px solid var(--border-color) !important;
+}
+
+/* Text Fields */
+.v-field {
+  font-family: var(--font-sans) !important;
+  transition: border-color var(--transition-fast) !important;
+}
+
+/* Tooltip override */
+.custom-tooltip {
+  background-color: var(--text-primary) !important;
+  color: var(--bg-base) !important;
+  border-radius: 6px;
+  overflow: visible !important;
+  padding: 4px 8px !important;
+  opacity: 0.95 !important;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+
+.custom-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: var(--text-primary) transparent transparent transparent;
+  width: 0 !important;
+  height: 0 !important;
+  background-color: transparent !important;
+  display: block;
+}
+
+/* ─── Chat-Specific Styles ────────────────────────────────────────────────── */
+
+/* Message bubbles */
+.message-bubble-self {
+  background: var(--bubble-self-bg) !important;
+  color: var(--bubble-self-text) !important;
+  border-radius: 16px 4px 16px 16px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15) !important;
+}
+
+.message-bubble-other {
+  background: var(--bubble-other-bg) !important;
+  color: var(--bubble-other-text) !important;
+  border-radius: 4px 16px 16px 16px !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08) !important;
+}
+
+/* Online status dot */
+.online-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-online);
+  box-shadow: 0 0 0 2px var(--bg-surface);
+  flex-shrink: 0;
+}
+
+/* Chat messages area */
+.chat-messages-area {
   display: flex;
   flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
-
-  @media (max-width: 1024px) {
-    padding: 32px 20px 24px;
-    gap: 18px;
-  }
+  gap: 4px;
+  padding: 16px !important;
 }
 
-#next-steps {
+/* Reaction badge */
+.reaction-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.reaction-badge:hover {
+  border-color: var(--color-primary);
+  background: rgba(59, 130, 246, 0.08);
+  transform: scale(1.05);
+}
+
+/* Action icon buttons */
+.action-icon-btn {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
   display: flex;
-  border-top: 1px solid var(--border);
-  text-align: left;
-
-  & > div {
-    flex: 1 1 0;
-    padding: 32px;
-    @media (max-width: 1024px) {
-      padding: 24px 20px;
-    }
-  }
-
-  .icon {
-    margin-bottom: 16px;
-    width: 22px;
-    height: 22px;
-  }
-
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    text-align: center;
-  }
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
 }
 
-#docs {
-  border-right: 1px solid var(--border);
-
-  @media (max-width: 1024px) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
+.action-icon-btn:hover {
+  opacity: 1;
+  background: var(--color-primary) !important;
+  color: #ffffff !important;
+  border-color: transparent;
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.35);
 }
 
-#next-steps ul {
-  list-style: none;
-  padding: 0;
+/* Slide-fade animation for contact panel */
+.slide-fade-enter-active,
+.slide-fade-leave-active {
+  transition: all var(--transition-base);
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  transform: translateX(12px);
+  opacity: 0;
+}
+
+/* Sticker items in picker */
+.sticker-item {
+  width: 72px;
+  height: 72px;
   display: flex;
-  gap: 8px;
-  margin: 32px 0 0;
-
-  .logo {
-    height: 18px;
-  }
-
-  a {
-    color: var(--text-h);
-    font-size: 16px;
-    border-radius: 6px;
-    background: var(--social-bg);
-    display: flex;
-    padding: 6px 12px;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-    transition: box-shadow 0.3s;
-
-    &:hover {
-      box-shadow: var(--shadow);
-    }
-    .button-icon {
-      height: 18px;
-      width: 18px;
-    }
-  }
-
-  @media (max-width: 1024px) {
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-
-    li {
-      flex: 1 1 calc(50% - 8px);
-    }
-
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
-    }
-  }
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  padding: 4px;
 }
 
-#spacer {
-  height: 88px;
-  border-top: 1px solid var(--border);
-  @media (max-width: 1024px) {
-    height: 48px;
-  }
+.sticker-item:hover {
+  background: var(--bg-hover);
 }
 
-.ticks {
-  position: relative;
+/* Image preview in chat */
+.chat-image {
+  max-width: 300px;
+  max-height: 300px;
   width: 100%;
-
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: -4.5px;
-    border: 5px solid transparent;
-  }
-
-  &::before {
-    left: 0;
-    border-left-color: var(--border);
-  }
-  &::after {
-    right: 0;
-    border-right-color: var(--border);
-  }
+  object-fit: cover;
+  border-radius: 10px;
+  cursor: pointer;
+  display: block;
+  transition: opacity var(--transition-fast);
 }
+
+.chat-image:hover {
+  opacity: 0.92;
+}
+
+/* File attachment card */
+.file-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border-color);
+  min-width: 180px;
+  max-width: 260px;
+}
+
+/* Sticker grid in message */
+.sticker-group-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 80px);
+  gap: 4px;
+}
+
+.sticker-group-cell {
+  width: 80px;
+  height: 80px;
+}
+
+/* Reply preview bar */
+.reply-preview {
+  border-left: 3px solid var(--color-primary);
+  background: rgba(59, 130, 246, 0.08);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+/* Message timestamp */
+.msg-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+/* Emoji picker button */
+.emoji-picker-btn {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  font-size: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background var(--transition-fast), transform 100ms ease;
+}
+
+.emoji-picker-btn:hover {
+  background: var(--bg-hover);
+  transform: scale(1.15);
+}
+
+/* Snackbar override – ensure contrast */
+.v-snackbar__wrapper {
+  font-family: var(--font-sans) !important;
+  font-size: 14px !important;
+}
+
+/* Message reaction count badge */
+.reaction-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-left: 2px;
+}
+
+/* Reaction positions */
+.reaction-self {
+  position: absolute;
+  bottom: -12px;
+  right: 6px;
+  z-index: 10;
+}
+
+.reaction-contact {
+  position: absolute;
+  bottom: -12px;
+  left: 6px;
+  z-index: 10;
+}
+
+/* ─── Conversation list helpers ────────────────────────────────────────────── */
+
+/* Unread conversation highlight */
+.conv-unread {
+  background: rgba(59, 130, 246, 0.05) !important;
+  border-left: 2px solid rgba(59, 130, 246, 0.4);
+}
+
+/* Active/selected conversation */
+.conversation-active {
+  background: rgba(59, 130, 246, 0.1) !important;
+  border-left: 2px solid var(--color-primary);
+}
+
+.v-theme--light .conv-unread {
+  background: rgba(37, 99, 235, 0.04) !important;
+  border-left: 2px solid rgba(37, 99, 235, 0.3);
+}
+.v-theme--light .conversation-active {
+  background: rgba(37, 99, 235, 0.07) !important;
+  border-left: 2px solid #2563EB;
+}
+
+/* ─── MessageThread header ──────────────────────────────────────────────────── */
+.message-thread-header {
+  border-bottom: 1px solid var(--border-color) !important;
+  background: var(--bg-surface);
+}
+
+/* ─── Chat input area ───────────────────────────────────────────────────────── */
+.chat-input-area {
+  border-top: 1px solid var(--border-color) !important;
+  background: var(--bg-surface);
+}
+
+/* ─── v-list-item default hover state fix ───────────────────────────────────── */
+.v-list-item:hover {
+  background-color: var(--bg-hover) !important;
+  cursor: pointer;
+}
+
+/* ─── Data Tables ───────────────────────────────────────────────────────────── */
+.v-data-table {
+  background: var(--bg-surface) !important;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.v-data-table th {
+  background-color: var(--bg-surface-2) !important;
+  color: var(--text-secondary) !important;
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.v-data-table td {
+  border-bottom: 1px dashed var(--border-color) !important;
+  color: var(--text-primary) !important;
+  padding: 12px 16px !important;
+}
+
+.v-data-table tbody tr:hover td {
+  background: var(--bg-hover) !important;
+}
+
+.v-table__wrapper {
+  border-radius: 12px;
+}
+

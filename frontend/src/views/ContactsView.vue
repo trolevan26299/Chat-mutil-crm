@@ -33,6 +33,8 @@
       :items-per-page="pagination.limit"
       :items-length="total"
       item-value="id"
+      fixed-header
+      height="calc(100vh - 240px)"
       hover
       @click:row="onRowClick"
       @update:page="onPageChange"

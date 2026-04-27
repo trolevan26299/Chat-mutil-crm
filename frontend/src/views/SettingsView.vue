@@ -1,7 +1,7 @@
 <template>
   <div>
     <h1 class="text-h4 mb-4">
-      <v-icon class="mr-2" style="color: #00F2FF;">mdi-cog-outline</v-icon>
+      <v-icon class="mr-2" color="primary">mdi-cog-outline</v-icon>
       Cài đặt
     </h1>
 
@@ -24,8 +24,8 @@
           {{ error }}
         </v-alert>
 
-        <v-card>
-          <v-data-table :headers="headers" :items="users" :loading="loading" no-data-text="Chưa có nhân viên nào">
+        <v-card elevation="0" border>
+          <v-data-table :headers="headers" :items="users" :loading="loading" no-data-text="Chưa có nhân viên nào" fixed-header height="calc(100vh - 240px)">
             <template #item.role="{ item }">
               <v-chip :color="roleColor(item.role)" size="small" variant="flat">{{ roleLabel(item.role) }}</v-chip>
             </template>
