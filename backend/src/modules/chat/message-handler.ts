@@ -83,11 +83,14 @@ export async function handleIncomingMessage(
         select: { id: true, zaloMsgId: true },
       });
       if (recentDupe) {
-        // If the existing record has no zaloMsgId, backfill it for future dedup
-        if (!recentDupe.zaloMsgId && msg.msgId) {
+        // Always sync the exact Zalo ID and precise cliMsgId timestamp
+        if (msg.msgId) {
           await prisma.message.update({
             where: { id: recentDupe.id },
-            data: { zaloMsgId: msg.msgId },
+            data: { 
+              zaloMsgId: msg.msgId,
+              sentAt: new Date(msg.timestamp) 
+            },
           }).catch(() => {});
         }
         logger.debug(`[message-handler] Skipping self echo: content match within 30s`);
@@ -112,9 +115,14 @@ export async function handleIncomingMessage(
         },
       });
     } catch (err: any) {
-      // P2002 = unique constraint violation → duplicate zaloMsgId, skip silently
-      if (err?.code === 'P2002') {
-        logger.debug(`[message-handler] Skipping duplicate zaloMsgId=${msg.msgId}`);
+      // P2002 = unique constraint violation → duplicate zaloMsgId
+      if (err?.code === 'P2002' && msg.msgId) {
+        logger.debug(`[message-handler] Syncing precise timestamp for msgId=${msg.msgId}`);
+        // Ensure the exact Zalo millisecond timestamp overwrites the sloppy local timestamp
+        await prisma.message.updateMany({
+          where: { zaloMsgId: msg.msgId },
+          data: { sentAt }
+        });
         return null;
       }
       throw err;

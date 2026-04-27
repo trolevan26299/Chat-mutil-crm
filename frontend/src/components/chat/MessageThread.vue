@@ -65,7 +65,6 @@
             </div>
           </div>
 
-          <!-- Normal message -->
           <div
             v-else
             v-for="msg in group.messages"
@@ -76,16 +75,32 @@
             @mouseenter="hoveredMsgId = msg.id"
             @mouseleave="hoveredMsgId = null"
           >
-            <!-- Reply btn: left of bubble (self msgs) -->
-            <button
+            <!-- Actions btn: left of bubble (self msgs) -->
+            <div
               v-if="msg.senderType === 'self'"
               v-show="hoveredMsgId === msg.id"
-              class="reply-icon-btn"
-              @click.stop="handleReplyClick(msg)"
-              title="Trả lời"
+              class="d-flex align-center mr-1 msg-actions"
             >
-              <v-icon size="15">mdi-reply</v-icon>
-            </button>
+              <button
+                class="action-icon-btn"
+                @click.stop="handleReplyClick(msg)"
+                title="Trả lời"
+              >
+                <v-icon size="15">mdi-reply</v-icon>
+              </button>
+              <v-menu location="top" open-on-hover close-on-content-click :open-delay="100">
+                <template v-slot:activator="{ props }">
+                  <button class="action-icon-btn ml-1" v-bind="props" title="Thả cảm xúc">
+                    <v-icon size="15">mdi-emoticon-outline</v-icon>
+                  </button>
+                </template>
+                <div class="d-flex pa-1 rounded-pill elevation-3 bg-surface" style="gap: 4px; border: 1px solid rgba(150,150,150,0.2);">
+                  <button v-for="(char, zcode) in globalEmojiMap" :key="zcode" class="emoji-picker-btn" @click="handleSendReaction(msg, String(zcode))">
+                    {{ char }}
+                  </button>
+                </div>
+              </v-menu>
+            </div>
 
             <div style="max-width: 70%; position: relative;">
               <div v-if="conversation.threadType === 'group' && msg.senderType !== 'self'" class="text-caption mb-1" style="color: #00F2FF; font-weight: 500;">
@@ -182,16 +197,32 @@
               </div>
             </div>
 
-            <!-- Reply btn: right of bubble (contact msgs) -->
-            <button
+            <!-- Actions btn: right of bubble (contact msgs) -->
+            <div
               v-if="msg.senderType !== 'self'"
               v-show="hoveredMsgId === msg.id"
-              class="reply-icon-btn"
-              @click.stop="handleReplyClick(msg)"
-              title="Trả lời"
+              class="d-flex align-center ml-1 msg-actions"
             >
-              <v-icon size="15">mdi-reply</v-icon>
-            </button>
+              <button
+                class="action-icon-btn"
+                @click.stop="handleReplyClick(msg)"
+                title="Trả lời"
+              >
+                <v-icon size="15">mdi-reply</v-icon>
+              </button>
+              <v-menu location="top" open-on-hover close-on-content-click :open-delay="100">
+                <template v-slot:activator="{ props }">
+                  <button class="action-icon-btn ml-1" v-bind="props" title="Thả cảm xúc">
+                    <v-icon size="15">mdi-emoticon-outline</v-icon>
+                  </button>
+                </template>
+                <div class="d-flex pa-1 rounded-pill elevation-3 bg-surface" style="gap: 4px; border: 1px solid rgba(150,150,150,0.2);">
+                  <button v-for="(char, zcode) in globalEmojiMap" :key="zcode" class="emoji-picker-btn" @click="handleSendReaction(msg, String(zcode))">
+                    {{ char }}
+                  </button>
+                </div>
+              </v-menu>
+            </div>
           </div>
         </template>
         <div v-if="!loading && messages.length === 0" class="text-center pa-8 text-grey">Chưa có tin nhắn</div>
@@ -424,18 +455,20 @@ function getQuoteData(msg: Message): any | null {
   return quoteAttach ? quoteAttach.data : null;
 }
 
+const globalEmojiMap: Record<string, string> = {
+  '/-heart': '❤️', '/-strong': '👍', ':>': '😆', ':o': '😮', ':-((': '😢',
+  ':-h': '😡', ':-*': '😘', ":')": '😂'
+};
+
 function getReactionSummary(msg: Message) {
   if (!msg.reactions || !Array.isArray(msg.reactions) || msg.reactions.length === 0) return null;
-  const emojiMap: Record<string, string> = {
-    '/-heart': '❤️', '/-strong': '👍', ':>': '😆', ':o': '😮', ':-((': '😢',
-    ':-h': '😡', ':-*': '😘', ":')": '😂', '/-shit': '💩', '/-rose': '🌹',
-    '/-break': '💔', '/-weak': '👎', ';xx': '😍'
-  };
+
+  const emojiMapFallback: Record<string, string> = { ...globalEmojiMap, '/-shit': '💩', '/-rose': '🌹', '/-break': '💔', '/-weak': '👎', ';xx': '😍' };
 
   const sums: Record<string, number> = {};
   msg.reactions.forEach(r => {
     if (r.reactItem) {
-      const e = emojiMap[r.reactItem] || r.reactItem;
+      const e = emojiMapFallback[r.reactItem] || r.reactItem;
       sums[e] = (sums[e] || 0) + 1;
     }
   });
@@ -837,6 +870,21 @@ async function syncAppointment(msg: Message) {
   }
 }
 
+const handleSendReaction = async (msg: Message, zcode: string) => {
+  if (!msg.id || !props.conversation?.id) return;
+  try {
+    await api.post(`/conversations/${props.conversation.id}/messages/${msg.id}/reaction`, { icon: zcode });
+  } catch (err) {
+    console.error('Lỗi khi thả cảm xúc:', err);
+  }
+};
+
+onMounted(() => {
+  if (messagesContainer.value) {
+    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+  }
+});
+
 watch(() => props.messages.length, async () => { await nextTick(); if (messagesContainer.value) messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight; });
 </script>
 
@@ -1003,4 +1051,48 @@ html.v-theme--light .reaction-badge {
   opacity: 0.7;
   margin-left: 2px;
 }
+.msg-actions {
+  transition: transform 0.2s ease;
+}
+
+.action-icon-btn {
+  background: var(--v-theme-surface);
+  border: 1px solid rgba(150, 150, 150, 0.15);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--v-theme-on-surface);
+  opacity: 0.6;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.action-icon-btn:hover {
+  opacity: 1;
+  background: var(--v-theme-primary);
+  color: white;
+  border-color: transparent;
+}
+
+.emoji-picker-btn {
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+.emoji-picker-btn:hover {
+  background: rgba(150,150,150,0.15);
+  transform: scale(1.1);
+}
+
 </style>

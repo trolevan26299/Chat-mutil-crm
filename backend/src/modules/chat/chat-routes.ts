@@ -301,7 +301,7 @@ export async function chatRoutes(app: FastifyInstance) {
 
       const sendResult = await instance.api.sendMessage(msgContent, threadId, threadType);
       // Extract zaloMsgId from sendMessage response for dedup with selfListen
-      const zaloMsgId = String(sendResult?.message?.msgId || sendResult?.msgId || sendResult?.data?.msgId || '');
+      const zaloMsgId = String(sendResult?.message?.msgIds?.[0] || sendResult?.message?.msgId || sendResult?.msgId || sendResult?.data?.msgId || '');
 
       let quoteAttachments: any[] = [];
       if (quote?.zaloMsgId) {
@@ -444,6 +444,49 @@ export async function chatRoutes(app: FastifyInstance) {
     } catch (err: any) {
       logger.error('Search sticker error:', err.message);
       return reply.status(500).send({ error: 'Failed to search sticker' });
+    }
+  });
+
+  // ── Send reaction ─────────────────────────────────────────────────────────
+  app.post('/api/v1/conversations/:id/messages/:msgId/reaction', { preHandler: requireZaloAccess('chat') }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const user = request.user!;
+    const { id, msgId } = request.params as { id: string; msgId: string };
+    const { icon } = request.body as { icon: string };
+
+    if (!icon) return reply.status(400).send({ error: 'Icon is required' });
+
+    const conversation = await prisma.conversation.findFirst({
+      where: { id, orgId: user.orgId },
+    });
+    if (!conversation) return reply.status(404).send({ error: 'Conversation not found' });
+
+    const message = await prisma.message.findUnique({
+      where: { id: msgId }
+    });
+    if (!message || message.conversationId !== id || !message.zaloMsgId) {
+      return reply.status(404).send({ error: 'Message not found or not synced with Zalo' });
+    }
+
+    const instance = zaloPool.getInstance(conversation.zaloAccountId);
+    if (!instance?.api) return reply.status(400).send({ error: 'Zalo account not connected' });
+
+    try {
+      const threadId = conversation.externalThreadId || '';
+      const dest = {
+        type: conversation.threadType === 'group' ? 1 : 0,
+        threadId: threadId,
+        data: {
+          msgId: message.zaloMsgId,
+          cliMsgId: String(message.sentAt.getTime()) // Zalo mobile app requires valid cliMsgId to render. Timestamp is often the cliMsgId.
+        }
+      };
+
+      await instance.api.addReaction(icon, dest as any);
+
+      return reply.send({ success: true });
+    } catch (error: any) {
+      request.log.error('Reaction error:', error);
+      return reply.status(500).send({ error: error.message || 'Lỗi thả cảm xúc' });
     }
   });
 }

@@ -108,13 +108,22 @@ export function attachZaloListener(ctx: ListenerContext): void {
         }
       }
 
+      const rawContent = message.data?.content;
+      if (typeof rawContent === 'object' && rawContent !== null) {
+        if (rawContent.errorMsg) {
+          logger.warn(`[zalo:${accountId}] Ignoring error message`, rawContent);
+          return;
+        }
+      }
+
+      logger.info(`[zalo:${accountId}] INCOMING MSG => msgId=${message.data?.msgId}, cliMsgId=${message.data?.cliMsgId}, timestamp=${message.data?.timestamp}`);
+
       // Resolve group name for group threads
       let groupName: string | undefined;
       if (isGroup && message.threadId) {
         groupName = await resolveGroupName(api, message.threadId);
       }
 
-      const rawContent = message.data?.content;
       let content =
         typeof rawContent === 'string' ? rawContent : JSON.stringify(rawContent || '');
       const contentType = detectContentType(message.data?.msgType, rawContent);
@@ -170,7 +179,7 @@ export function attachZaloListener(ctx: ListenerContext): void {
         content,
         contentType,
         msgId: String(message.data?.msgId || ''),
-        timestamp: parseInt(message.data?.ts || String(Date.now())),
+        timestamp: parseInt(message.data?.timestamp || message.data?.cliMsgId || String(Date.now())),
         isSelf: message.isSelf || false,
         threadId: message.threadId || '',
         threadType: isGroup ? 'group' : 'user',
