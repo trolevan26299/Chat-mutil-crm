@@ -147,6 +147,21 @@ export function attachZaloListener(ctx: ListenerContext): void {
         }
       }
 
+      const attachments: any[] = [];
+      if (message.data?.quote) {
+        attachments.push({
+          type: 'quote',
+          data: {
+            zaloMsgId: String(message.data.quote.globalMsgId || message.data.quote.cliMsgId || ''),
+            uidFrom: String(message.data.quote.ownerId || ''),
+            textPreview: message.data.quote.msg || '',
+            attach: message.data.quote.attach || '',
+            msgType: message.data.quote.cliMsgType || '',
+            fromDName: message.data.quote.fromD || '',
+          }
+        });
+      }
+
       const result = await handleIncomingMessage({
         accountId,
         senderUid,
@@ -159,7 +174,7 @@ export function attachZaloListener(ctx: ListenerContext): void {
         threadId: message.threadId || '',
         threadType: isGroup ? 'group' : 'user',
         groupName,
-        attachments: [],
+        attachments,
       });
 
       if (result) {
@@ -208,6 +223,21 @@ export function attachZaloListener(ctx: ListenerContext): void {
           typeof rawContent === 'string' ? rawContent : JSON.stringify(rawContent || '');
         const contentType = detectContentType(message.data?.msgType, rawContent);
 
+        const attachments: any[] = [];
+        if (message.data?.quote) {
+          attachments.push({
+            type: 'quote',
+            data: {
+              zaloMsgId: String(message.data.quote.globalMsgId || message.data.quote.cliMsgId || ''),
+              uidFrom: String(message.data.quote.ownerId || ''),
+              textPreview: message.data.quote.msg || '',
+              attach: message.data.quote.attach || '',
+              msgType: message.data.quote.cliMsgType || '',
+              fromDName: message.data.quote.fromD || '',
+            }
+          });
+        }
+
         const result = await handleIncomingMessage({
           accountId,
           senderUid,
@@ -220,7 +250,7 @@ export function attachZaloListener(ctx: ListenerContext): void {
           threadId: message.threadId || '',
           threadType,
           groupName,
-          attachments: [],
+          attachments,
           isBackfill: true,
         });
 

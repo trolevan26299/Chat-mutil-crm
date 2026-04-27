@@ -3,7 +3,7 @@
  * Bootstraps Fastify server with all plugins, Socket.IO, and route handlers.
  * The process never exits — all errors are caught and logged.
  */
-import Fastify from 'fastify';
+import Fastify, { type FastifyRequest, type FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
 import fastifyJwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';

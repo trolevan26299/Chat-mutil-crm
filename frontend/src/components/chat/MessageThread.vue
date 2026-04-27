@@ -36,7 +36,23 @@
           <!-- Sticker group: show as responsive grid -->
           <div v-if="group.isStickers" class="mb-2 d-flex" :class="group.senderType === 'self' ? 'justify-end' : 'justify-start'">
             <div class="sticker-group-grid">
-              <div v-for="msg in group.messages" :key="msg.id" class="sticker-group-cell">
+              <div
+                v-for="msg in group.messages"
+                :key="msg.id"
+                class="sticker-group-cell"
+                style="position:relative;"
+                @mouseenter="hoveredMsgId = msg.id"
+                @mouseleave="hoveredMsgId = null"
+              >
+                <button
+                  v-show="hoveredMsgId === msg.id"
+                  class="reply-icon-btn"
+                  style="position:absolute;top:4px;right:4px;z-index:5;"
+                  @click.stop="handleReplyClick(msg)"
+                  title="Trả lời"
+                >
+                  <v-icon size="15">mdi-reply</v-icon>
+                </button>
                 <img
                   v-if="getStickerUrl(msg)"
                   :src="getStickerUrl(msg)!"
@@ -50,18 +66,46 @@
           </div>
 
           <!-- Normal message -->
-          <div v-else v-for="msg in group.messages" :key="msg.id" class="mb-2 d-flex" :class="msg.senderType === 'self' ? 'justify-end' : 'justify-start'">
+          <div
+            v-else
+            v-for="msg in group.messages"
+            :key="msg.id"
+            class="mb-2 d-flex"
+            :class="msg.senderType === 'self' ? 'justify-end' : 'justify-start'"
+            style="align-items:center; gap:4px;"
+            @mouseenter="hoveredMsgId = msg.id"
+            @mouseleave="hoveredMsgId = null"
+          >
+            <!-- Reply btn: left of bubble (self msgs) -->
+            <button
+              v-if="msg.senderType === 'self'"
+              v-show="hoveredMsgId === msg.id"
+              class="reply-icon-btn"
+              @click.stop="handleReplyClick(msg)"
+              title="Trả lời"
+            >
+              <v-icon size="15">mdi-reply</v-icon>
+            </button>
+
             <div style="max-width: 70%;">
               <div v-if="conversation.threadType === 'group' && msg.senderType !== 'self'" class="text-caption mb-1" style="color: #00F2FF; font-weight: 500;">
                 {{ msg.senderName || 'Unknown' }}
               </div>
               <div class="message-bubble pa-2 px-3 rounded-lg" :class="msg.senderType === 'self' ? 'bg-primary text-white' : 'bg-white'" style="word-wrap: break-word;">
+                <!-- Quoted Message (Reply snippet at top of bubble) -->
+                <div v-if="!msg.isDeleted && getQuoteData(msg)" class="mb-1 pa-2 rounded" style="background: var(--v-theme-surface); border-left: 3px solid rgba(0, 242, 255, 0.5); font-size: 0.8rem; line-height: 1.3; opacity: 0.85;">
+                  <div class="font-weight-bold text-truncate" style="max-width: 200px;">{{ getQuoteData(msg)?.fromDName || getQuoteData(msg)?.uidFrom || 'Người dùng' }}</div>
+                  <div class="text-truncate" style="max-width: 200px;">{{ getQuoteData(msg)?.textPreview || '(tin nhắn)' }}</div>
+                </div>
+
+                <!-- MAIN CONTENT (Mutually exclusive block) -->
                 <!-- Deleted -->
                 <div v-if="msg.isDeleted" class="text-decoration-line-through font-italic" style="opacity: 0.6;">
                   {{ msg.content || '(tin nhắn)' }}<span class="text-caption"> (đã thu hồi)</span>
                 </div>
                 <!-- Image -->
                 <div v-else-if="getImageUrl(msg)">
+
                   <img :src="getImageUrl(msg)!" alt="Hình ảnh" class="chat-image" @click="previewImageUrl = getImageUrl(msg)!" />
                 </div>
                 <!-- File/PDF -->
@@ -115,10 +159,24 @@
                 </div>
               </div>
             </div>
+
+            <!-- Reply btn: right of bubble (contact msgs) -->
+            <button
+              v-if="msg.senderType !== 'self'"
+              v-show="hoveredMsgId === msg.id"
+              class="reply-icon-btn"
+              @click.stop="handleReplyClick(msg)"
+              title="Trả lời"
+            >
+              <v-icon size="15">mdi-reply</v-icon>
+            </button>
           </div>
         </template>
         <div v-if="!loading && messages.length === 0" class="text-center pa-8 text-grey">Chưa có tin nhắn</div>
       </div>
+
+
+
 
       <!-- Input -->
       <div class="pa-2 chat-input-area d-flex flex-column" style="gap: 8px;">
@@ -130,6 +188,18 @@
           @generate="$emit('ask-ai')"
           @apply="applySuggestion"
         />
+
+        <!-- Reply preview banner -->
+        <div v-if="replyTo" class="reply-preview d-flex align-center px-3 py-2">
+          <v-icon size="16" color="primary" class="mr-2">mdi-reply</v-icon>
+          <div class="flex-grow-1 text-truncate">
+            <span class="text-caption font-weight-bold" style="color: #00F2FF;">{{ replyTo.senderType === 'self' ? 'Bạn' : (replyTo.senderName || 'Người dùng') }}</span>
+            <span class="text-caption ml-1" style="opacity: 0.7;">{{ getReplyPreviewText(replyTo) }}</span>
+          </div>
+          <v-btn icon size="x-small" variant="text" @click="clearReply">
+            <v-icon size="16">mdi-close</v-icon>
+          </v-btn>
+        </div>
         
         <div class="d-flex flex-column justify-end pa-2" style="background: var(--v-theme-surface); border: 1px solid var(--border-glow, rgba(0,242,255,0.2)); border-radius: 12px; position: relative;">
           <QuickTemplatePopup
@@ -162,6 +232,7 @@
           </div>
 
           <v-textarea
+            ref="textareaRef"
             v-model="inputText"
             placeholder="Nhập tin nhắn..."
             variant="plain"
@@ -286,13 +357,64 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'send', content: string, attachments: any[], sticker?: any): void;
+  (e: 'send', content: string, attachments: any[], sticker?: any, quote?: ReplyQuote): void;
   (e: 'ask-ai'): void;
   (e: 'toggle-contact-panel'): void;
 }>();
 
+// ── Reply feature ─────────────────────────────────────────────────────────
+interface ReplyQuote {
+  zaloMsgId: string;
+  uidFrom: string;
+  displayName: string;
+  textPreview: string;
+  msgType: string;
+}
+
+const replyTo = ref<Message | null>(null);
+const hoveredMsgId = ref<string | null>(null);
+
+function clearReply() {
+  replyTo.value = null;
+}
+
+function getReplyPreviewText(msg: Message): string {
+  if (!msg.content) return '(tin nhắn)';
+  if (getStickerUrl(msg)) return '🏷️ Sticker';
+  if (getImageUrl(msg)) return '🖼️ Hình ảnh';
+  if (getFileInfo(msg)) return '📄 ' + getFileInfo(msg)!.name;
+  return parseDisplayContent(msg.content).slice(0, 80) || '(tin nhắn)';
+}
+
+function buildReplyQuote(msg: Message): ReplyQuote {
+  return {
+    zaloMsgId: msg.zaloMsgId || '',
+    uidFrom: msg.senderUid || '',
+    displayName: msg.senderType === 'self' ? 'Bạn' : (msg.senderName || 'Người dùng'),
+    textPreview: getReplyPreviewText(msg),
+    msgType: msg.contentType || 'text',
+  };
+}
+
+function getQuoteData(msg: Message): any | null {
+  if (!msg.attachments || !Array.isArray(msg.attachments)) return null;
+  const quoteAttach = msg.attachments.find((a: any) => a.type === 'quote');
+  return quoteAttach ? quoteAttach.data : null;
+}
+
 const inputText = ref('');
 const messagesContainer = ref<HTMLElement | null>(null);
+const textareaRef = ref<any>(null);
+
+function handleReplyClick(msg: Message) {
+  replyTo.value = msg;
+  nextTick(() => {
+    if (textareaRef.value) {
+      textareaRef.value.focus();
+    }
+  });
+}
+
 const previewImageUrl = ref('');
 const showImagePreview = computed({ get: () => !!previewImageUrl.value, set: (v) => { if (!v) previewImageUrl.value = ''; } });
 const syncSnack = ref({ show: false, text: '', color: 'success' });
@@ -353,7 +475,9 @@ watch(showStickerPopup, (val) => {
 
 function sendSticker(st: {sticker_id: number; cate_id: number; type: number}) {
   showStickerPopup.value = false;
-  emit('send', '', [], { id: st.sticker_id, cateId: st.cate_id, type: st.type });
+  const quote = replyTo.value ? buildReplyQuote(replyTo.value) : undefined;
+  emit('send', '', [], { id: st.sticker_id, cateId: st.cate_id, type: st.type }, quote);
+  clearReply();
 }
 
 function onSelectEmoji(emoji: any) {
@@ -434,9 +558,11 @@ function onTemplateSelect(rendered: string) {
 function handleSend() {
   if (showTemplatePopup.value) { showTemplatePopup.value = false; return; }
   if (!inputText.value.trim() && selectedAttachments.value.length === 0) return;
-  emit('send', inputText.value.trim(), selectedAttachments.value);
+  const quote = replyTo.value ? buildReplyQuote(replyTo.value) : undefined;
+  emit('send', inputText.value.trim(), selectedAttachments.value, undefined, quote);
   inputText.value = '';
   clearAttachments();
+  clearReply();
 }
 
 // --- Upload Image & File ---
@@ -670,6 +796,46 @@ watch(() => props.messages.length, async () => { await nextTick(); if (messagesC
   background: rgba(10, 25, 47, 0.3);
 }
 
+.reply-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.2);
+  color: #eeeeee;
+  cursor: pointer;
+  flex-shrink: 0;
+  outline: none;
+  padding: 0;
+  transition: background 0.15s, border-color 0.15s, transform 0.12s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.reply-icon-btn:hover {
+  background: rgba(0, 242, 255, 0.3);
+  border-color: rgba(0, 242, 255, 0.6);
+  color: #ffffff;
+  transform: scale(1.1);
+  box-shadow: 0 2px 6px rgba(0, 242, 255, 0.3);
+}
+
+/* Light mode adjustments */
+.v-theme--light .reply-icon-btn {
+  border: 1px solid rgba(100, 100, 100, 0.3);
+  background: rgba(100, 100, 100, 0.15);
+  color: #546E7A;
+}
+
+.v-theme--light .reply-icon-btn:hover {
+  background: rgba(21, 101, 192, 0.18);
+  border-color: rgba(21, 101, 192, 0.5);
+  color: #1565C0;
+}
+
+
 .custom-textarea-plain :deep(.v-field__overlay),
 .custom-textarea-plain :deep(.v-field__outline) {
   display: none !important;
@@ -718,5 +884,41 @@ watch(() => props.messages.length, async () => { await nextTick(); if (messagesC
   width: 96px !important;
   height: 96px !important;
   object-fit: contain;
+}
+
+/* Right-click context menu */
+.msg-context-menu {
+  position: fixed;
+  z-index: 9999;
+  background: #1e2a3a;
+  border: 1px solid rgba(0, 242, 255, 0.25);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  min-width: 160px;
+  overflow: hidden;
+  user-select: none;
+}
+
+.msg-context-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.85);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.msg-context-item:hover {
+  background: rgba(0, 242, 255, 0.12);
+  color: #00F2FF;
+}
+
+/* Reply preview banner above input */
+.reply-preview {
+  background: rgba(0, 242, 255, 0.07);
+  border-left: 3px solid #00F2FF;
+  border-radius: 8px;
+  gap: 6px;
 }
 </style>

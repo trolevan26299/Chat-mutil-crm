@@ -65,6 +65,21 @@ async function syncGroupMessages(api: any, accountId: string): Promise<number> {
         const content =
           typeof rawContent === 'string' ? rawContent : JSON.stringify(rawContent || '');
 
+        const attachments: any[] = [];
+        if (msg.data?.quote) {
+          attachments.push({
+            type: 'quote',
+            data: {
+              zaloMsgId: String(msg.data.quote.globalMsgId || msg.data.quote.cliMsgId || ''),
+              uidFrom: String(msg.data.quote.ownerId || ''),
+              textPreview: msg.data.quote.msg || '',
+              attach: msg.data.quote.attach || '',
+              msgType: msg.data.quote.cliMsgType || '',
+              fromDName: msg.data.quote.fromD || '',
+            }
+          });
+        }
+
         const result = await handleIncomingMessage({
           accountId,
           senderUid: String(msg.data?.uidFrom || ''),
@@ -76,7 +91,7 @@ async function syncGroupMessages(api: any, accountId: string): Promise<number> {
           isSelf: msg.isSelf || false,
           threadId: conv.externalThreadId!,
           threadType: 'group',
-          attachments: [],
+          attachments,
           isBackfill: true,
         });
 

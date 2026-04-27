@@ -190,10 +190,11 @@ export async function chatRoutes(app: FastifyInstance) {
   app.post('/api/v1/conversations/:id/messages', { preHandler: requireZaloAccess('chat') }, async (request: FastifyRequest, reply: FastifyReply) => {
     const user = request.user!;
     const { id } = request.params as { id: string };
-    const { content, attachments, sticker } = request.body as { 
+    const { content, attachments, sticker, quote } = request.body as { 
       content?: string; 
       attachments?: { type: string; filename: string; base64: string; size: number; width?: number; height?: number }[];
       sticker?: { id: number; cateId: number; type: number };
+      quote?: { zaloMsgId: string; uidFrom: string; displayName: string; textPreview: string; msgType: string };
     };
 
     if ((!content || !content.trim()) && (!attachments || attachments.length === 0) && !sticker) {
@@ -282,9 +283,39 @@ export async function chatRoutes(app: FastifyInstance) {
       }
 
       // Existing text-only flow
-      const sendResult = await instance.api.sendMessage({ msg: content || '' }, threadId, threadType);
+      // Build message content, add quote if replying
+      const msgContent: any = { msg: content || '' };
+      if (quote?.zaloMsgId) {
+        // SendMessageQuote shape from zca-js: content, msgType, propertyExt, uidFrom, msgId, cliMsgId, ts, ttl
+        msgContent.quote = {
+          content: quote.textPreview,
+          msgType: quote.msgType === 'text' ? 'webchat' : quote.msgType,
+          propertyExt: undefined,
+          uidFrom: quote.uidFrom,
+          msgId: quote.zaloMsgId,
+          cliMsgId: quote.zaloMsgId,
+          ts: String(Date.now()),
+          ttl: 0,
+        };
+      }
+
+      const sendResult = await instance.api.sendMessage(msgContent, threadId, threadType);
       // Extract zaloMsgId from sendMessage response for dedup with selfListen
-      const zaloMsgId = String(sendResult?.msgId || sendResult?.data?.msgId || '');
+      const zaloMsgId = String(sendResult?.message?.msgId || sendResult?.msgId || sendResult?.data?.msgId || '');
+
+      let quoteAttachments: any[] = [];
+      if (quote?.zaloMsgId) {
+        quoteAttachments.push({
+          type: 'quote',
+          data: {
+            zaloMsgId: quote.zaloMsgId,
+            uidFrom: quote.uidFrom,
+            textPreview: quote.textPreview,
+            msgType: quote.msgType,
+            fromDName: quote.displayName,
+          }
+        });
+      }
 
       const message = await prisma.message.create({
         data: {
@@ -296,6 +327,7 @@ export async function chatRoutes(app: FastifyInstance) {
           senderName: 'Staff',
           content: content || '',
           contentType: 'text',
+          attachments: quoteAttachments,
           sentAt: new Date(),
           repliedByUserId: user.id,
         },

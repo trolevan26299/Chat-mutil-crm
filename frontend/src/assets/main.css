@@ -317,3 +317,29 @@ html, body {
 .v-theme--light .text-grey-lighten-2 {
   color: #bbb !important;
 }
+
+/* ── Message context menu (global, used via Teleport) ─── */
+.msg-context-menu {
+  position: fixed;
+  z-index: 9999;
+  background: #1e2a3a;
+  border: 1px solid rgba(0, 242, 255, 0.25);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  min-width: 160px;
+  overflow: hidden;
+  user-select: none;
+}
+.msg-context-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.85);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.msg-context-item:hover {
+  background: rgba(0, 242, 255, 0.12);
+  color: #00F2FF;
+}

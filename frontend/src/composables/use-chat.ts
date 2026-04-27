@@ -48,9 +48,11 @@ export interface Message {
   contentType: string;
   senderType: string;
   senderName: string | null;
+  senderUid: string | null;
   sentAt: string;
   isDeleted: boolean;
   zaloMsgId: string | null;
+  attachments?: any[];
 }
 
 export function useChat() {
@@ -222,12 +224,12 @@ export function useChat() {
     await Promise.allSettled([generateAiSummary(), generateAiSentiment(), fetchAiUsage()]);
   }
 
-  async function sendMessage(content: string, attachments?: any[], sticker?: any) {
+  async function sendMessage(content: string, attachments?: any[], sticker?: any, quote?: any) {
     if (!selectedConvId.value || (!content.trim() && (!attachments || attachments.length === 0) && !sticker)) return;
-    await sendMessageTo(selectedConvId.value, content, attachments, sticker);
+    await sendMessageTo(selectedConvId.value, content, attachments, sticker, quote);
   }
 
-  async function sendMessageTo(conversationId: string, content: string, attachments?: any[], sticker?: any) {
+  async function sendMessageTo(conversationId: string, content: string, attachments?: any[], sticker?: any, quote?: any) {
     if (!content.trim() && (!attachments || attachments.length === 0) && !sticker) return;
     sendingMsg.value = true;
     try {
@@ -237,6 +239,9 @@ export function useChat() {
       }
       if (sticker) {
         payload.sticker = sticker;
+      }
+      if (quote) {
+        payload.quote = quote;
       }
       const res = await api.post(`/conversations/${conversationId}/messages`, payload);
       if (conversationId === selectedConvId.value) {

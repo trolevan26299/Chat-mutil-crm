@@ -75,6 +75,7 @@ const allMessages = computed(() => {
       contentType: 'text',
       senderType: 'self',
       senderName: null,
+      senderUid: null,
       sentAt: p.createdAt,
       isDeleted: false,
       zaloMsgId: null,
@@ -83,13 +84,13 @@ const allMessages = computed(() => {
   return [...messages.value, ...pending];
 });
 
-async function handleSend(content: string) {
+async function handleSend(content: string, attachments?: any[], sticker?: any, quote?: any) {
   if (!selectedConvId.value) return;
   if (!navigator.onLine) {
     enqueue(selectedConvId.value, content);
     return;
   }
-  await sendMessage(content);
+  await sendMessage(content, attachments, sticker, quote);
 }
 
 // Flush queue when coming back online
