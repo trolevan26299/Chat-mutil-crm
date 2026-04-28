@@ -14,14 +14,28 @@
 
     <!-- Call (voice or video) -->
     <v-chip
-      v-else-if="type === 'call'"
+      v-else-if="type === 'call' || isZaloCallEvent"
       variant="tonal"
-      :color="isMissed ? 'error' : 'primary'"
+      :color="isSelf ? 'white' : (isMissed ? 'error' : 'primary')"
       label
     >
       <v-icon :icon="isVideo ? 'mdi-video' : 'mdi-phone'" class="mr-1" />
       {{ callLabel }}
     </v-chip>
+
+    <!-- Contact Card (Business card) -->
+    <v-card v-else-if="type === 'contact_card'" variant="outlined" class="pa-3" rounded="lg">
+      <div class="d-flex align-center">
+        <v-avatar size="40" class="mr-3" color="grey-lighten-2">
+          <v-img v-if="content?.thumb" :src="content.thumb" />
+          <v-icon v-else>mdi-account</v-icon>
+        </v-avatar>
+        <div>
+          <div class="font-weight-bold">{{ content?.title || 'Danh thiếp' }}</div>
+          <div class="text-caption text-medium-emphasis">{{ contactDescription }}</div>
+        </div>
+      </div>
+    </v-card>
 
     <!-- QR Code -->
     <v-card v-else-if="type === 'qr_code'" variant="outlined" class="pa-3 text-center" rounded="lg" style="max-width: 140px;">
@@ -74,6 +88,7 @@ const props = defineProps<{
   type: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   content: any;
+  isSelf?: boolean;
 }>();
 
 // Bank transfer helpers
@@ -84,29 +99,80 @@ const amount = computed<number | null>(() => {
 });
 const description = computed<string>(() => props.content?.description || props.content?.content || '');
 
+// Contact Card helpers
+const contactDescription = computed<string>(() => {
+  const desc = props.content?.description;
+  if (!desc) return 'Danh thiếp Zalo';
+  if (typeof desc === 'string' && desc.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(desc);
+      if (parsed.phone) return `SĐT: ${parsed.phone}`;
+      return 'Danh thiếp Zalo';
+    } catch {
+      return desc;
+    }
+  }
+  return desc;
+});
+
 function formatAmount(value: number): string {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 }
 
 // Call helpers
+const isZaloCallEvent = computed<boolean>(() => {
+  return props.type === 'contact_card' && props.content?.title === 'sendBubbleMessage';
+});
+
+const callParams = computed(() => {
+  if (isZaloCallEvent.value && props.content?.params) {
+    try {
+      return typeof props.content.params === 'string' ? JSON.parse(props.content.params) : props.content.params;
+    } catch { return {}; }
+  }
+  return null;
+});
+
 const isMissed = computed<boolean>(() => {
+  if (callParams.value) {
+    return props.content?.action?.includes('misscall') || callParams.value.duration === 0;
+  }
   const t = (props.content?.callType || '').toLowerCase();
   return t.includes('miss') || props.content?.duration === 0;
 });
+
 const isVideo = computed<boolean>(() => {
+  if (callParams.value) {
+    return callParams.value.calltype === 1; // 1=video, 0=audio based on observed Zalo payloads
+  }
   const t = (props.content?.callType || '').toLowerCase();
   return t.includes('video');
 });
+
 const callLabel = computed<string>(() => {
-  if (isMissed.value) return isVideo.value ? 'Cuộc gọi video nhỡ' : 'Cuộc gọi nhỡ';
-  const dur = props.content?.callDuration ?? props.content?.duration;
-  if (dur) {
+  let isOutgoing = false;
+  if (callParams.value) {
+    isOutgoing = callParams.value.isCaller === 1;
+  }
+
+  // Direction prefix
+  let prefix = isVideo.value ? 'Cuộc gọi video' : 'Cuộc gọi';
+  if (isMissed.value) {
+    prefix = isOutgoing ? (isVideo.value ? 'Cuộc gọi video nhỡ' : 'Cuộc gọi nhỡ') : prefix + ' nhỡ';
+  } else if (isOutgoing) {
+    prefix = 'Gọi đi';
+  } else {
+    prefix = 'Cuộc gọi đến';
+  }
+
+  const dur = callParams.value ? (callParams.value.duration || 0) : (props.content?.callDuration ?? props.content?.duration);
+  if (dur && dur > 0) {
     const mins = Math.floor(dur / 60);
     const secs = dur % 60;
-    const label = mins > 0 ? `${mins}p${secs}s` : `${secs}s`;
-    return isVideo.value ? `Gọi video (${label})` : `Cuộc gọi (${label})`;
+    const label = mins > 0 ? `${mins} phút ${secs} giây` : `${secs} giây`;
+    return `${prefix} (${label})`;
   }
-  return isVideo.value ? 'Cuộc gọi video' : 'Cuộc gọi';
+  return prefix;
 });
 
 // Generic title for reminder/poll/note

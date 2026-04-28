@@ -35,7 +35,9 @@
       </div>
 
       <!-- Messages -->
-      <div ref="messagesContainer" class="flex-grow-1 overflow-y-auto pa-3 chat-messages-area">
+      <!-- Messages -->
+      <div style="position: relative; flex-grow: 1; display: flex; flex-direction: column; overflow: hidden;">
+        <div ref="messagesContainer" class="flex-grow-1 overflow-y-auto pa-3 chat-messages-area" @scroll="handleScroll">
         <v-progress-linear v-if="loading" indeterminate color="primary" class="mb-2" />
         <template v-for="(group, gi) in groupedMessages" :key="gi">
           <!-- Sticker group: show as responsive grid -->
@@ -136,8 +138,16 @@
                 </div>
                 <!-- Image -->
                 <div v-else-if="getImageUrl(msg)">
-
                   <img :src="getImageUrl(msg)!" alt="Hình ảnh" class="chat-image" @click="previewImageUrl = getImageUrl(msg)!" />
+                </div>
+                <!-- Voice Message -->
+                <div v-else-if="msg.contentType === 'voice'" class="d-flex align-center">
+                  <div class="mr-2 text-h5">🎤</div>
+                  <audio v-if="getVoiceUrl(msg)" controls style="height: 40px; max-width: 200px;">
+                    <source :src="getVoiceUrl(msg)!" type="audio/aac">
+                    Trình duyệt của bạn không hỗ trợ.
+                  </audio>
+                  <span v-else class="text-caption">Đang tải âm thanh...</span>
                 </div>
                 <!-- File/PDF -->
                 <div v-else-if="getFileInfo(msg)" class="file-card">
@@ -161,8 +171,19 @@
                   />
                   <span v-else class="text-grey text-caption">🏷️ Sticker</span>
                 </div>
-                <div v-else-if="msg.contentType === 'video'">🎥 Video</div>
-                <div v-else-if="msg.contentType === 'voice'">🎤 Tin nhắn thoại</div>
+                <!-- Video -->
+                <div v-else-if="msg.contentType === 'video'" class="video-container">
+                  <video
+                    v-if="getVideoUrl(msg)"
+                    controls
+                    :poster="getVideoThumb(msg) || undefined"
+                    style="width: 100%; border-radius: 8px; max-height: 350px; display: block; object-fit: contain; background: #000;"
+                  >
+                    <source :src="getVideoUrl(msg)!" type="video/mp4" />
+                    Trình duyệt của bạn không hỗ trợ.
+                  </video>
+                  <div v-else class="text-caption text-grey">🎥 Đang tải Video...</div>
+                </div>
                 <div v-else-if="msg.contentType === 'gif'">GIF</div>
                 <!-- Reminder/Calendar -->
                 <div v-else-if="isReminderMessage(msg)" class="reminder-card">
@@ -181,6 +202,7 @@
                   v-else-if="isSpecialType(msg.contentType)"
                   :type="msg.contentType"
                   :content="parseContent(msg.content)"
+                  :is-self="msg.senderType === 'self'"
                 />
                 <!-- Default text -->
                 <div v-else>{{ parseDisplayContent(msg.content) }}</div>
@@ -242,6 +264,20 @@
           </div>
         </template>
         <div v-if="!loading && messages.length === 0" class="text-center pa-8 text-grey">Chưa có tin nhắn</div>
+        </div>
+        
+        <!-- Scroll to bottom button -->
+        <v-fade-transition>
+          <v-btn
+            v-show="showScrollToBottom"
+            icon="mdi-chevron-down"
+            size="small"
+            color="primary"
+            elevation="4"
+            style="position: absolute; bottom: 16px; right: 20px; z-index: 10;"
+            @click="scrollToBottom"
+          />
+        </v-fade-transition>
       </div>
 
 
@@ -542,6 +578,23 @@ const syncSnack = ref({ show: false, text: '', color: 'success' });
 const showAiPanel = ref(false);
 const showEmojiPicker = ref(false);
 
+const showScrollToBottom = ref(false);
+
+function handleScroll() {
+  if (!messagesContainer.value) return;
+  const { scrollTop, scrollHeight, clientHeight } = messagesContainer.value;
+  // Show button if we are more than 150px away from the bottom
+  showScrollToBottom.value = scrollHeight - scrollTop - clientHeight > 150;
+}
+
+function scrollToBottom() {
+  if (!messagesContainer.value) return;
+  messagesContainer.value.scrollTo({
+    top: messagesContainer.value.scrollHeight,
+    behavior: 'smooth'
+  });
+}
+
 // Group consecutive sticker messages from same sender into a grid group
 const groupedMessages = computed(() => {
   const groups: { isStickers: boolean; senderType: string; messages: typeof props.messages }[] = [];
@@ -614,7 +667,7 @@ function toggleAiPanel() {
 
 // Content types handled by SpecialMessageRenderer
 const SPECIAL_TYPES = new Set([
-  'bank_transfer', 'call', 'qr_code', 'reminder', 'poll', 'note', 'forwarded', 'rich',
+  'bank_transfer', 'call', 'qr_code', 'reminder', 'poll', 'note', 'forwarded', 'rich', 'contact_card'
 ]);
 
 function isSpecialType(contentType: string | null | undefined): boolean {
@@ -789,6 +842,7 @@ function openFile(url: string) {
 
 /** Extract image URL from JSON content */
 function getImageUrl(msg: Message): string | null {
+  if (msg.contentType === 'sticker' || msg.contentType === 'voice') return null; // handled separately
   if (msg.contentType === 'image' && msg.content) {
     if (msg.content.startsWith('http')) return msg.content;
     try { const p = JSON.parse(msg.content); return p.href || p.thumb || p.hdUrl || null; } catch {}
@@ -798,9 +852,43 @@ function getImageUrl(msg: Message): string | null {
       const p = JSON.parse(msg.content);
       const href = p.href || p.thumb || '';
       if (href && /\.(jpg|jpeg|png|webp|gif)/i.test(href)) return href;
-      if (href && href.includes('zdn.vn') && !p.params?.includes('fileExt')) return href;
+      if (href && href.includes('zdn.vn') && !p.params?.includes('fileExt') && !href.includes('.aac') && !href.includes('.m4a') && !href.includes('voice')) return href;
     } catch {}
   }
+  return null;
+}
+
+/** Extract voice URL from JSON content */
+function getVoiceUrl(msg: Message): string | null {
+  if (msg.contentType !== 'voice' || !msg.content) return null;
+  try {
+    const p = JSON.parse(msg.content);
+    if (p.href) return p.href;
+    if (p.params) {
+      const params = typeof p.params === 'string' ? JSON.parse(p.params) : p.params;
+      return params.m4a || params.href || null;
+    }
+  } catch {}
+  return null;
+}
+
+/** Extract video URL from JSON content */
+function getVideoUrl(msg: Message): string | null {
+  if (msg.contentType !== 'video' || !msg.content) return null;
+  try {
+    const p = JSON.parse(msg.content);
+    return p.href || null;
+  } catch {}
+  return null;
+}
+
+/** Extract video thumbnail URL from JSON content */
+function getVideoThumb(msg: Message): string | null {
+  if (msg.contentType !== 'video' || !msg.content) return null;
+  try {
+    const p = JSON.parse(msg.content);
+    return p.thumb || null;
+  } catch {}
   return null;
 }
 
@@ -940,6 +1028,16 @@ const confirmUndo = async () => {
 onMounted(() => {
   if (messagesContainer.value) {
     messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+  }
+  if (textareaRef.value) {
+    textareaRef.value.focus();
+  }
+});
+
+watch(() => props.conversation?.id, async () => {
+  await nextTick();
+  if (textareaRef.value) {
+    textareaRef.value.focus();
   }
 });
 

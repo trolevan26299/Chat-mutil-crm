@@ -449,7 +449,22 @@ function lastMessagePreview(conv: Conversation): string {
     case 'poll': return prefix + '📊 Bình chọn';
     case 'note': return prefix + '📝 Ghi chú';
     case 'forwarded': return prefix + '↩️ Chuyển tiếp';
-    case 'contact_card': return prefix + '👤 Danh thiếp';
+    case 'contact_card': 
+      if (msg.content && msg.content.includes('"sendBubbleMessage"')) {
+        let isMissed = false;
+        let isVideo = false;
+        try {
+          const contentP = JSON.parse(msg.content);
+          if (contentP.params) {
+            const params = typeof contentP.params === 'string' ? JSON.parse(contentP.params) : contentP.params;
+            isMissed = contentP.action?.includes('misscall') || params.duration === 0;
+            isVideo = params.calltype === 1;
+          }
+        } catch {}
+        if (isMissed) return prefix + (isVideo ? '📞 Cuộc gọi video nhỡ' : '📞 Cuộc gọi nhỡ');
+        return prefix + (isVideo ? '📞 Cuộc gọi video' : '📞 Cuộc gọi');
+      }
+      return prefix + '👤 Danh thiếp';
     case 'rich': return prefix + '📋 Tin nhắn đặc biệt';
   }
 
