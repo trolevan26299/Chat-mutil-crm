@@ -30,7 +30,7 @@ const tabs = [
 ];
 
 const activeTab = computed(() => {
-  return tabs.find(t => t.path === route.path)?.path ?? '/chat';
+  return tabs.find(t => t.path === route.path)?.path || undefined;
 });
 
 function navigate(path: string) {

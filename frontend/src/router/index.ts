@@ -81,6 +81,12 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/campaigns',
+    name: 'Campaigns',
+    component: () => import('@/views/CampaignView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('@/views/NotFoundView.vue'),

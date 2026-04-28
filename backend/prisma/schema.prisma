@@ -27,8 +27,10 @@ model Organization {
   integrations    Integration[]
   automationRules AutomationRule[]
   messageTemplates MessageTemplate[]
-  aiConfig      AiConfig?
-  aiSuggestions AiSuggestion[]
+  aiConfig        AiConfig?
+  aiSuggestions   AiSuggestion[]
+  campaignGroups  CampaignGroup[]
+  campaigns       Campaign[]
 
   @@map("organizations")
 }
@@ -87,11 +89,12 @@ model ZaloAccount {
   lastConnectedAt DateTime? @map("last_connected_at")
   createdAt       DateTime  @default(now()) @map("created_at")
 
-  org           Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  owner         User                @relation(fields: [ownerUserId], references: [id])
-  access        ZaloAccountAccess[]
-  conversations Conversation[]
-  dailyStats    DailyMessageStat[]
+  org            Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  owner          User                @relation(fields: [ownerUserId], references: [id])
+  access         ZaloAccountAccess[]
+  conversations  Conversation[]
+  dailyStats     DailyMessageStat[]
+  campaignQueues CampaignQueue[]
 
   @@map("zalo_accounts")
 }
@@ -142,6 +145,7 @@ model Contact {
   mergedFrom        Contact[]    @relation("ContactMerge")
   conversations     Conversation[]
   appointments      Appointment[]
+  campaignQueues    CampaignQueue[]
 
   @@index([orgId, phone])
   @@index([orgId, zaloUid])
@@ -411,4 +415,79 @@ model AiSuggestion {
   @@index([conversationId, createdAt])
   @@index([orgId, type, createdAt])
   @@map("ai_suggestions")
+}
+
+// ─── Campaign Module ────────────────────────────────────────────────────────
+
+// Nhóm khách hàng chiến dịch
+model CampaignGroup {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  name        String
+  description String?
+  // "all" | "exclude" | "manual"
+  mode        String   @default("manual")
+  // IDs khách hàng được chọn (mode=manual) hoặc bị loại trừ (mode=exclude)
+  contactIds  Json     @default("[]") @map("contact_ids")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaigns Campaign[]
+
+  @@index([orgId])
+  @@map("campaign_groups")
+}
+
+// Chiến dịch gửi tin nhắn
+model Campaign {
+  id             String    @id @default(uuid())
+  orgId          String    @map("org_id")
+  groupId        String    @map("group_id")
+  title          String
+  // JSON array: [{type:"text",value:"..."},{type:"image",base64:"..."}]
+  content        Json      @default("[]")
+  // "once" | "daily" | "weekly" | "monthly"
+  scheduleType   String    @default("once") @map("schedule_type")
+  // Giờ gửi "HH:mm"
+  scheduleTime   String?   @map("schedule_time")
+  // Ngày cụ thể ISO (once) hoặc ngày trong tuần/tháng
+  scheduleValue  String?   @map("schedule_value")
+  isRecurring    Boolean   @default(false) @map("is_recurring")
+  // "draft" | "active" | "paused" | "completed"
+  status         String    @default("draft")
+  lastRunAt      DateTime? @map("last_run_at")
+  nextRunAt      DateTime? @map("next_run_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  org        Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  group      CampaignGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  queueItems CampaignQueue[]
+
+  @@index([orgId, status])
+  @@index([orgId, nextRunAt])
+  @@map("campaigns")
+}
+
+// Hàng đợi gửi tin nhắn từ chiến dịch
+model CampaignQueue {
+  id            String    @id @default(uuid())
+  campaignId    String    @map("campaign_id")
+  contactId     String    @map("contact_id")
+  zaloAccountId String    @map("zalo_account_id")
+  // "pending" | "sending" | "sent" | "failed"
+  status        String    @default("pending")
+  sentAt        DateTime? @map("sent_at")
+  error         String?
+  chunkIndex    Int       @default(0) @map("chunk_index")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  campaign    Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact     Contact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  zaloAccount ZaloAccount @relation(fields: [zaloAccountId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, status])
+  @@index([campaignId, chunkIndex])
+  @@map("campaign_queue")
 }

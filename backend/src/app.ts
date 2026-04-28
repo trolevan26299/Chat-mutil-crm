@@ -44,6 +44,8 @@ import { integrationRoutes } from './modules/integrations/integration-routes.js'
 import { automationRoutes } from './modules/automation/automation-routes.js';
 import { templateRoutes } from './modules/automation/template-routes.js';
 import { aiRoutes } from './modules/ai/ai-routes.js';
+import { campaignRoutes } from './modules/campaign/campaign-routes.js';
+import { startCampaignScheduler } from './modules/campaign/campaign-scheduler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -126,6 +128,7 @@ async function bootstrap() {
   await app.register(automationRoutes);
   await app.register(templateRoutes);
   await app.register(aiRoutes);
+  await app.register(campaignRoutes);
 
   // ── Public sticker image proxy (no auth needed — browser img tag) ──────────
   app.get('/api/v1/sticker-image', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -195,6 +198,7 @@ async function bootstrap() {
     startAppointmentReminder(io);
     startZaloHealthCheck();
     startContactIntelligence();
+    startCampaignScheduler();
   } catch (err) {
     logger.error('Failed to start server:', err);
     process.exit(1);

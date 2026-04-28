@@ -150,7 +150,7 @@
               <div
                 class="message-bubble pa-2 px-3"
                 :class="msg.senderType === 'self' ? 'message-bubble-self' : 'message-bubble-other'"
-                style="word-wrap: break-word;"
+                style="word-wrap: break-word; white-space: pre-wrap;"
               >
                 <!-- Quoted Message (Reply snippet at top of bubble) -->
                 <div v-if="!msg.isDeleted && getQuoteData(msg)" class="mb-1 pa-2 rounded" style="background: rgba(0,0,0,0.12); border-left: 3px solid var(--color-primary); font-size: 0.8rem; line-height: 1.3; opacity: 0.9;">

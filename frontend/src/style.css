@@ -173,20 +173,20 @@ html, body {
 }
 
 /* Tooltip override */
-.custom-tooltip {
+.v-tooltip > .v-overlay__content {
   background-color: var(--text-primary) !important;
   color: var(--bg-base) !important;
-  border-radius: 6px;
+  border-radius: 6px !important;
   overflow: visible !important;
   padding: 4px 8px !important;
   opacity: 0.95 !important;
-  font-weight: 500;
-  font-family: var(--font-sans);
-  font-size: 12px;
-  letter-spacing: 0.01em;
+  font-weight: 500 !important;
+  font-family: var(--font-sans) !important;
+  font-size: 12px !important;
+  letter-spacing: 0.01em !important;
 }
 
-.custom-tooltip::after {
+.v-tooltip > .v-overlay__content::after {
   content: '';
   position: absolute;
   top: 100%;
