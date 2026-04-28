@@ -14,6 +14,7 @@ export interface ZaloAccount {
   status: string;
   liveStatus?: string;
   phone: string | null;
+  proxyUrl?: string | null;
   sessionData: any;
   ownerUserId: string;
   createdAt: string;
@@ -64,10 +65,10 @@ export function useZaloAccounts() {
     }
   }
 
-  async function addAccount(displayName: string) {
+  async function addAccount(displayName: string, proxyUrl?: string) {
     adding.value = true;
     try {
-      await api.post('/zalo-accounts', { displayName: displayName || undefined });
+      await api.post('/zalo-accounts', { displayName: displayName || undefined, proxyUrl: proxyUrl || undefined });
       await fetchAccounts();
       return true;
     } catch (err: any) {

@@ -13,11 +13,28 @@ import { logger } from '../../shared/utils/logger.js';
 import { attachZaloListener, type UserInfoCacheEntry } from './zalo-listener-factory.js';
 import { emitWebhook } from '../api/webhook-service.js';
 import { startMessageSync, stopMessageSync } from './zalo-message-sync.js';
+import { HttpsProxyAgent } from 'https-proxy-agent';
+import { SocksProxyAgent } from 'socks-proxy-agent';
 
 // zca-js has no reliable ESM type exports — load via CJS interop
 const require = createRequire(import.meta.url);
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { Zalo } = require('zca-js') as { Zalo: new (opts: { logging: boolean; selfListen?: boolean }) => any };
+const { Zalo } = require('zca-js') as { Zalo: new (opts: { logging: boolean; selfListen?: boolean; agent?: any }) => any };
+
+/** Build an HTTP/SOCKS proxy agent from a proxy URL string */
+function buildProxyAgent(proxyUrl: string | null | undefined): any {
+  if (!proxyUrl) return undefined;
+  try {
+    const url = new URL(proxyUrl);
+    if (url.protocol === 'socks5:' || url.protocol === 'socks4:' || url.protocol === 'socks:') {
+      return new SocksProxyAgent(proxyUrl);
+    }
+    return new HttpsProxyAgent(proxyUrl);
+  } catch {
+    logger.warn(`[proxy] Invalid proxy URL: ${proxyUrl}`);
+    return undefined;
+  }
+}
 
 interface ZaloCredentials {
   cookie: any;
@@ -31,6 +48,7 @@ interface ZaloInstance {
   status: 'connected' | 'disconnected' | 'qr_pending' | 'connecting';
   displayName?: string;
   zaloUid?: string;
+  proxyUrl?: string | null;  // stored for status reporting
   lastActivity: Date;
 }
 
@@ -48,8 +66,25 @@ class ZaloAccountPool {
 
   // Initiate QR-based login; emits QR events to frontend via Socket.IO
   async loginQR(accountId: string): Promise<void> {
-    const zalo = new Zalo({ logging: false, selfListen: true });
-    this.instances.set(accountId, { zalo, api: null, status: 'qr_pending', lastActivity: new Date() });
+    // Load proxy from DB for this account
+    const accountConfig = await prisma.zaloAccount.findUnique({
+      where: { id: accountId },
+      select: { proxyUrl: true },
+    });
+    const rawProxy = accountConfig?.proxyUrl;
+    const proxyAgent = buildProxyAgent(rawProxy);
+    const maskedProxy = rawProxy?.replace(/:[^:@]+@/, ':***@') ?? null;
+
+    if (proxyAgent) {
+      logger.info(`[zalo:${accountId}] 🛡️  PROXY ACTIVE: ${maskedProxy}`);
+      logger.info(`[zalo:${accountId}]    └─ HTTP API calls  → proxy`);
+      logger.info(`[zalo:${accountId}]    └─ WebSocket (realtime listener) → proxy`);
+    } else {
+      logger.warn(`[zalo:${accountId}] ⚠️  NO PROXY — all traffic goes directly to Zalo servers`);
+    }
+
+    const zalo = new Zalo({ logging: false, selfListen: true, ...(proxyAgent ? { agent: proxyAgent } : {}) });
+    this.instances.set(accountId, { zalo, api: null, status: 'qr_pending', proxyUrl: rawProxy, lastActivity: new Date() });
 
     try {
       const api = await zalo.loginQR({}, (event: any) => {
@@ -121,8 +156,25 @@ class ZaloAccountPool {
 
   // Reconnect using previously saved session credentials
   async reconnect(accountId: string, credentials: ZaloCredentials): Promise<void> {
-    const zalo = new Zalo({ logging: false, selfListen: true });
-    this.instances.set(accountId, { zalo, api: null, status: 'connecting', lastActivity: new Date() });
+    // Load proxy from DB for this account
+    const accountConfig = await prisma.zaloAccount.findUnique({
+      where: { id: accountId },
+      select: { proxyUrl: true },
+    });
+    const rawProxy = accountConfig?.proxyUrl;
+    const proxyAgent = buildProxyAgent(rawProxy);
+    const maskedProxy = rawProxy?.replace(/:[^:@]+@/, ':***@') ?? null;
+
+    if (proxyAgent) {
+      logger.info(`[zalo:${accountId}] 🛡️  PROXY ACTIVE (reconnect): ${maskedProxy}`);
+      logger.info(`[zalo:${accountId}]    └─ HTTP API calls  → proxy`);
+      logger.info(`[zalo:${accountId}]    └─ WebSocket (realtime listener) → proxy`);
+    } else {
+      logger.warn(`[zalo:${accountId}] ⚠️  NO PROXY (reconnect) — all traffic goes directly to Zalo servers`);
+    }
+
+    const zalo = new Zalo({ logging: false, selfListen: true, ...(proxyAgent ? { agent: proxyAgent } : {}) });
+    this.instances.set(accountId, { zalo, api: null, status: 'connecting', proxyUrl: rawProxy, lastActivity: new Date() });
 
     try {
       const api = await zalo.login({
@@ -282,6 +334,13 @@ class ZaloAccountPool {
     const statuses: Record<string, string> = {};
     for (const [id, inst] of this.instances) statuses[id] = inst.status;
     return statuses;
+  }
+
+  /** Returns proxy status for an account (masked) */
+  getProxyInfo(accountId: string): string | null {
+    const inst = this.instances.get(accountId);
+    if (!inst?.proxyUrl) return null;
+    return inst.proxyUrl.replace(/:[^:@]+@/, ':***@');
   }
 
   // Return raw API instance for direct SDK calls (e.g. public API send message)

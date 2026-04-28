@@ -23,6 +23,7 @@ export async function zaloRoutes(app: FastifyInstance): Promise<void> {
         avatarUrl: true,
         phone: true,
         status: true,
+        proxyUrl: true,
         lastConnectedAt: true,
         createdAt: true,
         owner: { select: { id: true, fullName: true, email: true } },
@@ -34,15 +35,17 @@ export async function zaloRoutes(app: FastifyInstance): Promise<void> {
     return accounts.map((a) => ({
       ...a,
       liveStatus: zaloPool.getStatus(a.id),
+      // Mask password in proxy URL for safety
+      proxyUrl: a.proxyUrl ? a.proxyUrl.replace(/:[^:@]+@/, ':***@') : null,
     }));
   });
 
   // POST /api/v1/zalo-accounts — create a new account record
-  app.post<{ Body: { displayName?: string } }>(
+  app.post<{ Body: { displayName?: string; proxyUrl?: string } }>(
     '/api/v1/zalo-accounts',
     async (request, reply) => {
       const user = request.user!;
-      const { displayName } = request.body ?? {};
+      const { displayName, proxyUrl } = request.body ?? {};
 
       const account = await prisma.zaloAccount.create({
         data: {
@@ -50,6 +53,7 @@ export async function zaloRoutes(app: FastifyInstance): Promise<void> {
           ownerUserId: user.id,
           displayName: displayName ?? null,
           status: 'qr_pending',
+          proxyUrl: proxyUrl ?? null,
         },
       });
 
@@ -148,6 +152,30 @@ export async function zaloRoutes(app: FastifyInstance): Promise<void> {
       }
 
       return { accountId: id, liveStatus: zaloPool.getStatus(id) };
+    },
+  );
+
+  // PATCH /api/v1/zalo-accounts/:id/proxy — set or clear proxy for account
+  app.patch<{ Params: { id: string }; Body: { proxyUrl: string | null } }>(
+    '/api/v1/zalo-accounts/:id/proxy',
+    async (request, reply) => {
+      const { id } = request.params;
+      const user = request.user!;
+      const { proxyUrl } = request.body ?? {};
+
+      const account = await prisma.zaloAccount.findFirst({
+        where: { id, orgId: user.orgId },
+      });
+      if (!account) {
+        return reply.status(404).send({ error: 'Account not found' });
+      }
+
+      await prisma.zaloAccount.update({
+        where: { id },
+        data: { proxyUrl: proxyUrl || null },
+      });
+
+      return { success: true, proxyUrl: proxyUrl ? proxyUrl.replace(/:[^:@]+@/, ':***@') : null };
     },
   );
 }

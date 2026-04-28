@@ -35,17 +35,28 @@
             {{ statusText(item.liveStatus || item.status) }}
           </v-chip>
         </template>
+        <template #item.proxy="{ item }">
+          <v-chip v-if="item.proxyUrl" color="teal" size="small" variant="tonal" prepend-icon="mdi-shield-lock">
+            {{ item.proxyUrl }}
+          </v-chip>
+          <span v-else class="text-grey text-caption">—</span>
+        </template>
         <template #item.actions="{ item }">
           <v-btn v-if="authStore.isAdmin" icon size="small" color="primary" title="Phân quyền truy cập" @click="openAccess(item)">
             <v-icon>mdi-shield-account</v-icon>
           </v-btn>
+          <v-btn icon size="small" color="teal" title="Cấu hình Proxy" @click="openProxy(item)">
+            <v-icon>mdi-shield-lock</v-icon>
+          </v-btn>
           <v-btn icon size="small" color="success" @click="syncContacts(item.id)" title="Đồng bộ danh bạ Zalo" :loading="syncing === item.id">
             <v-icon>mdi-account-sync</v-icon>
           </v-btn>
-          <v-btn v-if="item.liveStatus !== 'connected'" icon size="small" color="primary" @click="loginAccount(item.id)" title="Đăng nhập QR">
+          <!-- QR login: only when no session at all -->
+          <v-btn v-if="item.liveStatus === 'qr_pending' || (!item.sessionData && item.liveStatus !== 'connected')" icon size="small" color="primary" @click="loginAccount(item.id)" title="Đăng nhập QR">
             <v-icon>mdi-qrcode</v-icon>
           </v-btn>
-          <v-btn v-if="item.liveStatus === 'disconnected' && item.sessionData" icon size="small" color="info" @click="reconnectAccount(item.id)" title="Kết nối lại">
+          <!-- Reconnect: when disconnected or has session -->
+          <v-btn v-if="(item.liveStatus === 'disconnected' || item.liveStatus === 'connecting') && item.sessionData" icon size="small" color="info" @click="reconnectAccount(item.id)" title="Kết nối lại">
             <v-icon>mdi-refresh</v-icon>
           </v-btn>
           <v-btn icon size="small" color="error" @click="confirmDelete(item)" title="Xóa">
@@ -61,6 +72,15 @@
         <v-card-title>Thêm tài khoản Zalo</v-card-title>
         <v-card-text>
           <v-text-field v-model="newAccountName" label="Tên hiển thị (VD: Zalo Sale Hương)" />
+          <v-text-field
+            v-model="newAccountProxy"
+            label="Proxy URL (tùy chọn)"
+            placeholder="http://user:pass@1.2.3.4:8080 hoặc socks5://..."
+            hint="Hỗ trợ HTTP, HTTPS, SOCKS5. Để trống nếu không cần proxy."
+            persistent-hint
+            clearable
+            prepend-inner-icon="mdi-shield-lock"
+          />
         </v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -116,6 +136,36 @@
       :account-name="accessTarget?.displayName ?? accessTarget?.id ?? ''"
       :fullscreen="isMobile"
     />
+
+    <!-- Proxy configuration dialog -->
+    <v-dialog v-model="showProxyDialog" max-width="480">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="teal" class="mr-2">mdi-shield-lock</v-icon>
+          Cấu hình Proxy — {{ proxyTarget?.displayName || proxyTarget?.id }}
+        </v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model="proxyUrl"
+            label="Proxy URL"
+            placeholder="http://user:pass@1.2.3.4:8080 hoặc socks5://..."
+            hint="Hỗ trợ HTTP, HTTPS, SOCKS5. Xóa trống để tắt proxy."
+            persistent-hint
+            clearable
+            prepend-inner-icon="mdi-earth"
+          />
+          <v-alert type="success" density="compact" class="mt-3" variant="tonal">
+            Bấm <strong>Lưu &amp; Reconnect</strong> — hệ thống sẽ tự động lưu proxy và kết nối lại ngay.
+          </v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="showProxyDialog = false">Hủy</v-btn>
+          <v-btn color="error" variant="text" :loading="savingProxy" @click="handleClearProxy">Xóa Proxy</v-btn>
+          <v-btn color="teal" variant="flat" :loading="savingProxy" @click="handleSaveProxy">Lưu &amp; Reconnect</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -142,14 +192,20 @@ const showAddDialog = ref(false);
 const syncing = ref<string | null>(null);
 const showDeleteDialog = ref(false);
 const showAccessDialog = ref(false);
+const showProxyDialog = ref(false);
 const newAccountName = ref('');
+const newAccountProxy = ref('');
 const deleteTarget = ref<ZaloAccount | null>(null);
 const accessTarget = ref<ZaloAccount | null>(null);
+const proxyTarget = ref<ZaloAccount | null>(null);
+const proxyUrl = ref('');
+const savingProxy = ref(false);
 
 const headers = [
   { title: 'Tên', key: 'displayName', sortable: true },
   { title: 'Zalo UID', key: 'zaloUid' },
   { title: 'SĐT', key: 'phone' },
+  { title: 'Proxy', key: 'proxy' },
   { title: 'Trạng thái', key: 'status', sortable: true },
   { title: 'Hành động', key: 'actions', sortable: false, align: 'end' as const },
 ];
@@ -167,10 +223,11 @@ async function syncContacts(accountId: string) {
 }
 
 async function handleAddAccount() {
-  const ok = await addAccount(newAccountName.value);
+  const ok = await addAccount(newAccountName.value, newAccountProxy.value || undefined);
   if (ok) {
     showAddDialog.value = false;
     newAccountName.value = '';
+    newAccountProxy.value = '';
   }
 }
 
@@ -182,6 +239,50 @@ function confirmDelete(account: ZaloAccount) {
 function openAccess(account: ZaloAccount) {
   accessTarget.value = account;
   showAccessDialog.value = true;
+}
+
+function openProxy(account: ZaloAccount) {
+  proxyTarget.value = account;
+  proxyUrl.value = (account as any).proxyUrlRaw || '';
+  showProxyDialog.value = true;
+}
+
+async function handleSaveProxy() {
+  if (!proxyTarget.value) return;
+  savingProxy.value = true;
+  const accountId = proxyTarget.value.id;
+  const liveStatus = proxyTarget.value.liveStatus || proxyTarget.value.status;
+  try {
+    // 1. Save proxy
+    await api.patch(`/zalo-accounts/${accountId}/proxy`, { proxyUrl: proxyUrl.value || null });
+    showProxyDialog.value = false;
+
+    // 2. If account has a session (disconnected or connected), auto-reconnect with new proxy
+    const account = accounts.value.find(a => a.id === accountId);
+    if (account?.sessionData || liveStatus === 'connected' || liveStatus === 'disconnected') {
+      await api.post(`/zalo-accounts/${accountId}/reconnect`);
+    }
+
+    await fetchAccounts();
+  } catch (err: any) {
+    alert('Lỗi: ' + (err.response?.data?.error || err.message));
+  } finally {
+    savingProxy.value = false;
+  }
+}
+
+async function handleClearProxy() {
+  if (!proxyTarget.value) return;
+  savingProxy.value = true;
+  try {
+    await api.patch(`/zalo-accounts/${proxyTarget.value.id}/proxy`, { proxyUrl: null });
+    showProxyDialog.value = false;
+    await fetchAccounts();
+  } catch (err: any) {
+    alert('Lỗi: ' + (err.response?.data?.error || err.message));
+  } finally {
+    savingProxy.value = false;
+  }
 }
 
 async function handleDeleteAccount() {

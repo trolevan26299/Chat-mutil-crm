@@ -1,8 +1,8 @@
 <template>
   <MobileContactView v-if="isMobile" />
-  <div v-else>
+  <div v-else class="contacts-page d-flex flex-column">
     <!-- Toolbar -->
-    <div class="d-flex align-center mb-4 flex-wrap gap-2">
+    <div class="d-flex align-center mb-3 flex-wrap gap-2 flex-shrink-0">
       <h1 class="text-h5 mr-4">Khách hàng</h1>
       <v-spacer />
       <v-btn
@@ -23,108 +23,113 @@
     </div>
 
     <!-- Filters -->
-    <ContactFilters :filters="filters" @search="onFilterChange" />
+    <div class="flex-shrink-0">
+      <ContactFilters :filters="filters" @search="onFilterChange" />
+    </div>
 
-    <!-- Data table -->
-    <v-data-table
-      :headers="headers"
-      :items="contacts"
-      :loading="loading"
-      :items-per-page="pagination.limit"
-      :items-length="total"
-      item-value="id"
-      fixed-header
-      height="calc(100vh - 240px)"
-      hover
-      @click:row="onRowClick"
-      @update:page="onPageChange"
-    >
-      <!-- Avatar -->
-      <template #item.avatarUrl="{ item }">
-        <v-avatar size="32" color="grey-lighten-2">
-          <v-img v-if="item.avatarUrl" :src="item.avatarUrl" />
-          <v-icon v-else size="18">mdi-account</v-icon>
-        </v-avatar>
-      </template>
+    <!-- Data table fills remaining height, scrolls internally -->
+    <v-card class="flex-grow-1 d-flex flex-column overflow-hidden mt-3">
+      <v-data-table-server
+        :headers="headers"
+        :items="contacts"
+        :loading="loading"
+        :items-per-page="pagination.limit"
+        :items-length="total"
+        item-value="id"
+        fixed-header
+        class="contacts-table flex-grow-1"
+        hover
+        @click:row="onRowClick"
+        @update:page="onPageChange"
+        @update:items-per-page="onItemsPerPageChange"
+      >
+        <!-- Avatar -->
+        <template #item.avatarUrl="{ item }">
+          <v-avatar size="32" color="grey-lighten-2">
+            <v-img v-if="item.avatarUrl" :src="item.avatarUrl" />
+            <v-icon v-else size="18">mdi-account</v-icon>
+          </v-avatar>
+        </template>
 
-      <!-- Source chip -->
-      <template #item.source="{ item }">
-        <v-chip v-if="item.source" size="small" variant="tonal">
-          {{ sourceLabel(item.source) }}
-        </v-chip>
-        <span v-else class="text-grey">—</span>
-      </template>
+        <!-- Source chip -->
+        <template #item.source="{ item }">
+          <v-chip v-if="item.source" size="small" variant="tonal">
+            {{ sourceLabel(item.source) }}
+          </v-chip>
+          <span v-else class="text-grey">—</span>
+        </template>
 
-      <!-- Email -->
-      <template #item.email="{ item }">
-        <span v-if="item.email" class="text-body-2">{{ item.email }}</span>
-        <span v-else class="text-grey">—</span>
-      </template>
+        <!-- Email -->
+        <template #item.email="{ item }">
+          <span v-if="item.email" class="text-body-2">{{ item.email }}</span>
+          <span v-else class="text-grey">—</span>
+        </template>
 
-      <!-- Status chip -->
-      <template #item.status="{ item }">
-        <v-chip
-          v-if="item.status"
-          :color="statusColor(item.status)"
-          size="small"
-          variant="tonal"
-        >
-          {{ statusLabel(item.status) }}
-        </v-chip>
-        <span v-else class="text-grey">—</span>
-      </template>
+        <!-- Status chip -->
+        <template #item.status="{ item }">
+          <v-chip
+            v-if="item.status"
+            :color="statusColor(item.status)"
+            size="small"
+            variant="tonal"
+          >
+            {{ statusLabel(item.status) }}
+          </v-chip>
+          <span v-else class="text-grey">—</span>
+        </template>
 
-      <!-- Next appointment date -->
-      <template #item.nextAppointment="{ item }">
-        <span v-if="item.nextAppointment" class="text-body-2">
-          {{ formatDate(item.nextAppointment) }}
-        </span>
-        <span v-else class="text-grey">—</span>
-      </template>
+        <!-- Next appointment date -->
+        <template #item.nextAppointment="{ item }">
+          <span v-if="item.nextAppointment" class="text-body-2">
+            {{ formatDate(item.nextAppointment) }}
+          </span>
+          <span v-else class="text-grey">—</span>
+        </template>
 
-      <!-- First contact date -->
-      <template #item.firstContactDate="{ item }">
-        {{ item.firstContactDate ? new Date(item.firstContactDate).toLocaleDateString('vi-VN') : '—' }}
-      </template>
+        <!-- First contact date -->
+        <template #item.firstContactDate="{ item }">
+          {{ item.firstContactDate ? new Date(item.firstContactDate).toLocaleDateString('vi-VN') : '—' }}
+        </template>
 
-      <!-- Assigned user -->
-      <template #item.assignedUser="{ item }">
-        <span class="text-body-2">{{ item.assignedUser?.fullName ?? '—' }}</span>
-      </template>
+        <!-- Assigned user -->
+        <template #item.assignedUser="{ item }">
+          <span class="text-body-2">{{ item.assignedUser?.fullName ?? '—' }}</span>
+        </template>
 
-      <!-- Lead score -->
-      <template #item.leadScore="{ item }">
-        <v-chip
-          :color="scoreColor(item.leadScore)"
-          size="small"
-          variant="tonal"
-        >
-          {{ item.leadScore ?? 0 }}
-        </v-chip>
-      </template>
+        <!-- Lead score -->
+        <template #item.leadScore="{ item }">
+          <v-chip
+            :color="scoreColor(item.leadScore)"
+            size="small"
+            variant="tonal"
+          >
+            {{ item.leadScore ?? 0 }}
+          </v-chip>
+        </template>
 
-      <!-- Last activity -->
-      <template #item.lastActivity="{ item }">
-        <span v-if="item.lastActivity" class="text-body-2">{{ relativeTime(item.lastActivity) }}</span>
-        <span v-else class="text-grey">—</span>
-      </template>
+        <!-- Last activity -->
+        <template #item.lastActivity="{ item }">
+          <span v-if="item.lastActivity" class="text-body-2">{{ relativeTime(item.lastActivity) }}</span>
+          <span v-else class="text-grey">—</span>
+        </template>
 
-      <!-- AI Auto-Reply toggle -->
-      <template #item.aiAutoReply="{ item }">
-        <div @click.stop>
-          <v-switch
-            :model-value="getAiAutoReply(item)"
-            :loading="togglingId === item.id"
-            color="primary"
-            hide-details
-            density="compact"
-            inset
-            style="display:inline-flex"
-            @update:model-value="toggleAiAutoReply(item, $event)"
-          />
-        </div>
-      </template>
-    </v-data-table>
+        <!-- AI Auto-Reply toggle -->
+        <template #item.aiAutoReply="{ item }">
+          <div @click.stop>
+            <v-switch
+              :model-value="getAiAutoReply(item)"
+              :loading="togglingId === item.id"
+              color="primary"
+              hide-details
+              density="compact"
+              inset
+              style="display:inline-flex"
+              @update:model-value="toggleAiAutoReply(item, $event)"
+            />
+          </div>
+        </template>
+      </v-data-table-server>
+    </v-card>
 
     <!-- Contact detail/edit dialog -->
     <ContactDetailDialog
@@ -225,6 +230,12 @@ function onPageChange(page: number) {
   fetchContacts();
 }
 
+function onItemsPerPageChange(val: number) {
+  pagination.limit = val;
+  pagination.page = 1;
+  fetchContacts();
+}
+
 function openCreate() {
   selectedContact.value = null;
   showDialog.value = true;
@@ -276,3 +287,28 @@ onMounted(() => {
   fetchDuplicateGroups();
 });
 </script>
+
+<style scoped>
+/* Fill the entire available v-main height, no outer scrollbar */
+.contacts-page {
+  height: calc(100vh - 64px - 32px); /* 64px appbar + 32px container padding */
+  overflow: hidden;
+}
+
+/* Table card grows to fill remaining space */
+.contacts-page .v-card {
+  overflow: hidden;
+}
+
+/* Make the table body scroll internally */
+:deep(.contacts-table .v-table__wrapper) {
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+:deep(.contacts-table) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+</style>
