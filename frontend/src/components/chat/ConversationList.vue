@@ -56,7 +56,10 @@
                 </template>
                 <v-list-item-title class="font-weight-medium">{{ c.fullName || c.phone }}</v-list-item-title>
                 <v-list-item-subtitle class="text-caption">
-                  <span v-if="c.conversations?.[0]?.zaloAccount?.displayName">
+                  <span v-if="c.sourceAccountName">
+                    Qua Zalo: {{ c.sourceAccountName }}
+                  </span>
+                  <span v-else-if="c.conversations?.[0]?.zaloAccount?.displayName">
                     Qua Zalo: {{ c.conversations[0].zaloAccount.displayName }}
                   </span>
                   <span v-else class="text-disabled">Chưa có liên hệ Zalo</span>
@@ -333,6 +336,7 @@ interface ContactResult {
   fullName: string | null;
   phone: string | null;
   avatarUrl: string | null;
+  sourceAccountName?: string | null;
   conversations?: {
     id: string;
     zaloAccount?: { displayName: string | null };

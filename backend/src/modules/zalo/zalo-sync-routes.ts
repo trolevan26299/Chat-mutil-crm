@@ -41,12 +41,14 @@ export async function zaloSyncRoutes(app: FastifyInstance) {
           });
 
           if (existing) {
+            const currentMeta = (typeof existing.metadata === 'object' && existing.metadata) ? existing.metadata : {};
             await prisma.contact.update({
               where: { id: existing.id },
               data: {
                 fullName: zaloName || existing.fullName,
                 avatarUrl: avatar || existing.avatarUrl,
                 phone: phone || existing.phone,
+                metadata: { ...(currentMeta as any), sourceZaloAccountId: id },
               },
             });
             updated++;
@@ -59,6 +61,7 @@ export async function zaloSyncRoutes(app: FastifyInstance) {
                 fullName: zaloName || 'Unknown',
                 avatarUrl: avatar || null,
                 phone: phone || null,
+                metadata: { sourceZaloAccountId: id },
               },
             });
             created++;
@@ -131,6 +134,7 @@ async function linkOrphanedConversations(
           fullName: zaloName || 'Unknown',
           avatarUrl: avatar || null,
           phone: phone || null,
+          metadata: { sourceZaloAccountId: accountId },
         },
         select: { id: true },
       });

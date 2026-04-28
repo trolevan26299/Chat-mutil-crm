@@ -31,6 +31,7 @@ export async function searchRoutes(app: FastifyInstance) {
           fullName: true, 
           phone: true,
           avatarUrl: true,
+          metadata: true,
           conversations: {
             select: {
               id: true,
@@ -75,6 +76,34 @@ export async function searchRoutes(app: FastifyInstance) {
       }),
     ]);
 
-    return { contacts, messages, appointments };
+    // Resolve sourceAccountName for contacts that have sourceZaloAccountId in metadata
+    const allAccounts = await prisma.zaloAccount.findMany({
+      where: { orgId: user.orgId },
+      select: { id: true, displayName: true }
+    });
+    const accMap = new Map(allAccounts.map(a => [a.id, a.displayName]));
+
+    const mappedContacts = contacts.map(c => {
+      let sourceName = null;
+      let metaObj: any = null;
+
+      if (c.metadata) {
+        if (typeof c.metadata === 'string') {
+          try { metaObj = JSON.parse(c.metadata); } catch(e) {}
+        } else if (typeof c.metadata === 'object') {
+          metaObj = c.metadata;
+        }
+      }
+
+      if (metaObj && metaObj.sourceZaloAccountId) {
+        sourceName = accMap.get(metaObj.sourceZaloAccountId) || null;
+      }
+      return {
+        ...c,
+        sourceAccountName: sourceName
+      };
+    });
+
+    return { contacts: mappedContacts, messages, appointments };
   });
 }
