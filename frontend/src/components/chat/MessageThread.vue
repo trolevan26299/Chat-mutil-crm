@@ -377,6 +377,7 @@
             @input="onInput"
             @keydown="onInputKeydown"
             @keydown.enter.exact.prevent="handleSend"
+            @paste="handlePaste"
           />
           
           <!-- Toolbar -->
@@ -829,6 +830,54 @@ function onDocSelected(e: Event) {
     reader.readAsDataURL(file);
   });
   target.value = ''; // reset input
+}
+
+function handlePaste(e: ClipboardEvent) {
+  if (!e.clipboardData || !e.clipboardData.files.length) return;
+  
+  const files = Array.from(e.clipboardData.files);
+  
+  files.forEach(file => {
+    if (file.size > 50 * 1024 * 1024) {
+      syncSnack.value = { show: true, text: `File quá lớn (tối đa 50MB)`, color: 'error' };
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const base64 = ev.target?.result as string;
+      if (file.type.startsWith('image/')) {
+        const img = new Image();
+        img.onload = () => {
+          selectedAttachments.value.push({
+            type: 'image',
+            filename: file.name || 'image.png',
+            base64,
+            width: img.naturalWidth,
+            height: img.naturalHeight,
+            size: file.size
+          });
+        };
+        img.src = base64;
+      } else {
+        selectedAttachments.value.push({
+          type: 'file',
+          filename: file.name || 'document',
+          base64,
+          size: file.size
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+  
+  // Only prevent default if we're actually handling files
+  // If there's ALSO text in the clipboard, do we want to prevent default?
+  // Usually, if there's a file (like a screenshot), we don't paste the placeholder text.
+  // Wait! If the user copied text, `files` is usually empty. But what if they copied a file in Finder/Explorer?
+  // Finder copies BOTH text (filename) AND file.
+  // We want to prevent pasting the filename text if we are handling it as a file attachment.
+  e.preventDefault();
 }
 
 function removeAttachment(index: number) {
