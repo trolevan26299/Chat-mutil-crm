@@ -21,24 +21,41 @@ function randomDelay(minMs: number, maxMs: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Build ordered list of sendable blocks — preserves creation order
 type SendBlock =
   | { type: 'text'; value: string }
-  | { type: 'image'; buffer: Buffer; filename: string; size: number };
+  | { type: 'images'; attachments: { buffer: Buffer; filename: string; size: number }[] };
 
 function buildOrderedBlocks(content: any[]): SendBlock[] {
   const blocks: SendBlock[] = [];
+  
   for (const block of (content || [])) {
     if (block.type === 'text' && block.value?.trim()) {
       blocks.push({ type: 'text', value: block.value });
-    } else if (block.type === 'image' && block.base64) {
-      const mimeMatch = block.base64.match(/^data:([^;]+);base64,/);
-      const mime = mimeMatch?.[1] || 'image/jpeg';
-      const ext = mime.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
-      const rawBase64 = block.base64.replace(/^data:[^;]+;base64,/, '');
-      const buffer = Buffer.from(rawBase64, 'base64');
-      const filename = (block.filename as string | undefined) || `image.${ext}`;
-      blocks.push({ type: 'image', buffer, filename, size: buffer.length });
+    } else {
+      const imgs = [];
+      if (block.type === 'image' && block.base64) {
+        imgs.push(block);
+      } else if (block.type === 'images' && block.images?.length) {
+        imgs.push(...block.images);
+      }
+      
+      if (imgs.length > 0) {
+        const parsedImgs = imgs.map((img: any) => {
+          const mimeMatch = img.base64.match(/^data:([^;]+);base64,/);
+          const mime = mimeMatch?.[1] || 'image/jpeg';
+          const ext = mime.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+          const rawBase64 = img.base64.replace(/^data:[^;]+;base64,/, '');
+          const buffer = Buffer.from(rawBase64, 'base64');
+          return { buffer, filename: img.filename || `image.${ext}`, size: buffer.length };
+        });
+
+        const lastBlock = blocks[blocks.length - 1];
+        if (lastBlock?.type === 'images') {
+          lastBlock.attachments.push(...parsedImgs);
+        } else {
+          blocks.push({ type: 'images', attachments: parsedImgs });
+        }
+      }
     }
   }
   return blocks;
@@ -168,15 +185,15 @@ async function processCampaignQueue(campaign: { id: string; content: any; title:
           const block = orderedBlocks[bIdx];
           if (block.type === 'text') {
             await instance.api.sendMessage({ msg: block.value }, threadId, threadType);
-          } else if (block.type === 'image') {
+          } else if (block.type === 'images') {
             await instance.api.sendMessage(
               {
                 msg: '',
-                attachments: [{
-                  data: block.buffer,
-                  filename: block.filename as any,
-                  metadata: { totalSize: block.size },
-                }],
+                attachments: block.attachments.map(att => ({
+                  data: att.buffer,
+                  filename: att.filename as any,
+                  metadata: { totalSize: att.size },
+                })),
               },
               threadId,
               threadType

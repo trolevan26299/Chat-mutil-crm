@@ -90,14 +90,35 @@
               />
             </div>
 
-            <!-- Image block -->
-            <div v-else-if="block.type === 'image'" class="image-block d-flex align-center gap-3 pa-3 rounded-xl">
+            <!-- Single Image block (Backward compatibility) -->
+            <div v-else-if="block.type === 'image'" class="image-block d-flex align-center gap-3 pa-3 rounded-xl border border-dashed">
               <v-icon color="primary" size="22">mdi-image</v-icon>
               <img :src="block.base64" style="max-height: 72px; max-width: 180px; border-radius: 8px; object-fit: contain;" />
               <div class="flex-grow-1 text-caption text-medium-emphasis text-truncate">{{ block.filename || 'Hình ảnh' }}</div>
               <v-btn icon size="small" variant="text" color="error" @click="removeBlock(idx)">
                 <v-icon size="16">mdi-delete</v-icon>
               </v-btn>
+            </div>
+
+            <!-- Multi Images block -->
+            <div v-else-if="block.type === 'images'" class="images-block pa-3 rounded-xl border border-dashed">
+              <div class="d-flex align-center justify-space-between mb-2">
+                <div class="d-flex align-center gap-2 text-caption text-medium-emphasis">
+                  <v-icon color="primary" size="18">mdi-image-multiple</v-icon>
+                  Nhóm {{ block.images?.length || 0 }} hình ảnh
+                </div>
+                <v-btn icon size="x-small" variant="text" color="error" @click="removeBlock(idx)">
+                  <v-icon size="16">mdi-delete</v-icon>
+                </v-btn>
+              </div>
+              <div class="d-flex flex-wrap gap-2">
+                <div v-for="(img, iIdx) in block.images" :key="iIdx" class="position-relative">
+                  <img :src="img.base64" style="height: 64px; min-width: 64px; max-width: 120px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color);" />
+                  <v-btn icon size="x-small" color="error" class="position-absolute" style="top: -6px; right: -6px; width: 20px; height: 20px; min-height: 20px;" @click="block.images.splice(iIdx, 1); if(block.images.length===0) removeBlock(idx)">
+                    <v-icon size="12">mdi-close</v-icon>
+                  </v-btn>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -431,14 +452,21 @@ function insertNewline(idx: number) {
 }
 
 // ── Image ─────────────────────────────────────────────────────────────
-function onImageSelected(e: Event) {
+async function onImageSelected(e: Event) {
   const input = e.target as HTMLInputElement;
   if (!input.files?.length) return;
-  Array.from(input.files).forEach(file => {
+  const files = Array.from(input.files);
+  
+  const readImage = (file: File) => new Promise<{ base64: string; filename: string }>(resolve => {
     const reader = new FileReader();
-    reader.onload = ev => { form.content.push({ type: 'image', base64: ev.target?.result as string, filename: file.name }); };
+    reader.onload = ev => resolve({ base64: ev.target?.result as string, filename: file.name });
     reader.readAsDataURL(file);
   });
+
+  const images = await Promise.all(files.map(readImage));
+  
+  // Group all selected images into a single 'images' block
+  form.content.push({ type: 'images', images });
   input.value = '';
 }
 
