@@ -58,12 +58,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
+import { useRoute } from 'vue-router';
 import ConversationList from '@/components/chat/ConversationList.vue';
 import MessageThread from '@/components/chat/MessageThread.vue';
 import ChatContactPanel from '@/components/chat/ChatContactPanel.vue';
 import { useChat } from '@/composables/use-chat';
 import { useOfflineQueue } from '@/composables/use-offline-queue';
 
+const route = useRoute();
 const {
   conversations, selectedConvId, selectedConv, messages,
   loadingConvs, loadingMsgs, sendingMsg, searchQuery, accountFilter,
@@ -119,10 +121,18 @@ function onOnline() {
   flush(sendMessageTo);
 }
 
-onMounted(() => {
-  fetchConversations();
+onMounted(async () => {
+  await fetchConversations();
   initSocket();
   window.addEventListener('online', onOnline);
+  
+  if (route.query.convId) {
+    selectConversation(route.query.convId as string);
+  }
+});
+
+watch(() => route.query.convId, (newId) => {
+  if (newId) selectConversation(newId as string);
 });
 
 onUnmounted(() => {

@@ -51,15 +51,42 @@
                 @mouseenter="hoveredMsgId = msg.id"
                 @mouseleave="hoveredMsgId = null"
               >
-                <button
+                <div
                   v-show="hoveredMsgId === msg.id"
-                  class="reply-icon-btn"
-                  style="position:absolute;top:4px;right:4px;z-index:5;"
-                  @click.stop="handleReplyClick(msg)"
-                  title="Trả lời"
+                  class="d-flex align-center"
+                  style="position:absolute;top:4px;right:4px;z-index:5; background: rgba(255,255,255,0.85); border-radius: 12px; padding: 2px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
                 >
-                  <v-icon size="15">mdi-reply</v-icon>
-                </button>
+                  <!-- Nhắn gửi react -->
+                  <v-menu location="top" open-on-hover close-on-content-click :open-delay="100">
+                    <template v-slot:activator="{ props }">
+                      <button class="action-icon-btn" v-bind="props">
+                        <v-icon size="15" color="grey-darken-2">mdi-emoticon-outline</v-icon>
+                      </button>
+                    </template>
+                    <div class="d-flex pa-1 rounded-pill elevation-3 bg-surface" style="gap: 4px; border: 1px solid rgba(150,150,150,0.2);">
+                      <button v-for="(char, zcode) in globalEmojiMap" :key="zcode" class="emoji-picker-btn" @click="handleSendReaction(msg, String(zcode))">
+                        {{ char }}
+                      </button>
+                    </div>
+                  </v-menu>
+                  <!-- Trả lời -->
+                  <button
+                    class="action-icon-btn ml-1"
+                    @click.stop="handleReplyClick(msg)"
+                  >
+                    <v-icon size="15" color="grey-darken-2">mdi-reply</v-icon>
+                    <v-tooltip activator="parent" location="top" open-delay="200" content-class="custom-tooltip">Trả lời</v-tooltip>
+                  </button>
+                  <!-- Thu hồi -->
+                  <button
+                    v-if="msg.senderType === 'self'"
+                    class="action-icon-btn ml-1"
+                    @click.stop="handleUndoClick(msg)"
+                  >
+                    <v-icon size="15" color="error">mdi-undo</v-icon>
+                    <v-tooltip activator="parent" location="top" open-delay="200" content-class="custom-tooltip">Thu hồi</v-tooltip>
+                  </button>
+                </div>
                 <img
                   v-if="getStickerUrl(msg)"
                   :src="getStickerUrl(msg)!"

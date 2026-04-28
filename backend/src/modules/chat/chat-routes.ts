@@ -144,6 +144,69 @@ export async function chatRoutes(app: FastifyInstance) {
     return { conversations, total, page: parseInt(page), limit: Math.min(parseInt(limit), 200) };
   });
 
+  // ── Init conversation from Contact ──────────────────────────────────────
+  app.post('/api/v1/conversations/init', async (request: FastifyRequest, reply: FastifyReply) => {
+    const user = request.user!;
+    const { contactId } = request.body as { contactId: string };
+
+    if (!contactId) return reply.status(400).send({ error: 'contactId is required' });
+
+    const contact = await prisma.contact.findUnique({
+      where: { id: contactId, orgId: user.orgId }
+    });
+
+    if (!contact || !contact.zaloUid) {
+      return reply.status(400).send({ error: 'Khách hàng không có Zalo UID để nhắn tin' });
+    }
+
+    // Attempt to find existing conversation
+    let conversation = await prisma.conversation.findFirst({
+      where: { contactId: contact.id, orgId: user.orgId },
+      orderBy: { lastMessageAt: 'desc' }
+    });
+
+    if (conversation) {
+      return { conversationId: conversation.id };
+    }
+
+    // Identify connected accounts
+    let activeAccounts: { id: string }[] = [];
+    if (user.role === 'member') {
+      const access = await prisma.zaloAccountAccess.findMany({
+        where: { userId: user.id },
+        select: { zaloAccount: { select: { id: true } } }
+      });
+      activeAccounts = access.map(a => a.zaloAccount);
+    } else {
+      activeAccounts = await prisma.zaloAccount.findMany({
+        where: { orgId: user.orgId },
+        select: { id: true }
+      });
+    }
+
+    if (activeAccounts.length === 0) {
+      return reply.status(400).send({ error: 'Không tìm thấy tài khoản Zalo nào trong hệ thống để khởi tạo phiên chat' });
+    }
+
+    const zaloAccountId = activeAccounts[0].id;
+
+    conversation = await prisma.conversation.create({
+      data: {
+        id: randomUUID(),
+        orgId: user.orgId,
+        zaloAccountId,
+        contactId: contact.id,
+        threadType: 'user',
+        externalThreadId: contact.zaloUid,
+        lastMessageAt: new Date(),
+        unreadCount: 0,
+        isReplied: true,
+      }
+    });
+
+    return { conversationId: conversation.id };
+  });
+
   // ── Get single conversation ──────────────────────────────────────────────
   app.get('/api/v1/conversations/:id', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = request.user!;

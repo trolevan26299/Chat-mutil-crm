@@ -26,7 +26,19 @@ export async function searchRoutes(app: FastifyInstance) {
             { notes: { contains: searchTerm, mode: 'insensitive' } },
           ],
         },
-        select: { id: true, fullName: true, phone: true, diseaseCode: true, diseaseName: true },
+        select: { 
+          id: true, 
+          fullName: true, 
+          phone: true,
+          avatarUrl: true,
+          conversations: {
+            select: {
+              id: true,
+              zaloAccount: { select: { displayName: true } }
+            },
+            take: 1
+          }
+        },
         take: 10,
       }),
       prisma.message.findMany({

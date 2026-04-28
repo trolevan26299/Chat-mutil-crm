@@ -25,12 +25,22 @@
           <v-list-item
             v-for="c in results.contacts"
             :key="c.id"
-            @click="goTo('/contacts', c.id)"
+            @click="goToChatForContact(c)"
             density="compact"
           >
-            <template #prepend><v-icon size="18" color="primary">mdi-account</v-icon></template>
+            <template #prepend>
+              <v-avatar size="24" class="mr-2" color="primary" variant="tonal">
+                <v-img v-if="c.avatarUrl" :src="c.avatarUrl" />
+                <v-icon v-else size="16">mdi-account</v-icon>
+              </v-avatar>
+            </template>
             <v-list-item-title>{{ c.fullName || c.phone }}</v-list-item-title>
-            <v-list-item-subtitle v-if="c.diseaseName">{{ c.diseaseName }}</v-list-item-subtitle>
+            <v-list-item-subtitle>
+              <span v-if="c.conversations?.[0]?.zaloAccount?.displayName">
+                Qua Zalo: {{ c.conversations[0].zaloAccount.displayName }}
+              </span>
+              <span v-else>Không có Zalo chat</span>
+            </v-list-item-subtitle>
           </v-list-item>
         </template>
         <!-- Messages -->
@@ -85,8 +95,11 @@ interface ContactResult {
   id: string;
   fullName: string | null;
   phone: string | null;
-  diseaseCode: string | null;
-  diseaseName: string | null;
+  avatarUrl: string | null;
+  conversations?: {
+    id: string;
+    zaloAccount?: { displayName: string | null };
+  }[];
 }
 
 interface MessageResult {
@@ -147,6 +160,27 @@ function goTo(path: string, _id?: string) {
   showResults.value = false;
   query.value = '';
   router.push(path);
+}
+
+async function goToChatForContact(c: ContactResult) {
+  showResults.value = false;
+  query.value = '';
+  
+  let convId = c.conversations?.[0]?.id;
+  
+  if (!convId) {
+    try {
+      const res = await api.post('/conversations/init', { contactId: c.id });
+      convId = res.data.conversationId;
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Không thể tạo cuộc trò chuyện Zalo với khách hàng này.');
+      return;
+    }
+  }
+
+  if (convId) {
+    router.push({ path: '/chat', query: { convId } });
+  }
 }
 
 function truncate(s: string | null, len: number): string {

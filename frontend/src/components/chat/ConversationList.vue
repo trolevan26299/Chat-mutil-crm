@@ -15,16 +15,57 @@
         class="mb-2"
         @update:model-value="$emit('filter-account', $event)"
       />
-      <v-text-field
-        :model-value="search"
-        @update:model-value="$emit('update:search', $event)"
-        placeholder="Tìm kiếm..."
-        prepend-inner-icon="mdi-magnify"
-        variant="solo-filled"
-        density="compact"
-        hide-details
-        clearable
-      />
+      <div style="position: relative;">
+        <v-text-field
+          :model-value="search"
+          @update:model-value="onSearchUpdate"
+          placeholder="Tìm kiếm..."
+          prepend-inner-icon="mdi-magnify"
+          variant="solo-filled"
+          density="compact"
+          hide-details
+          clearable
+        />
+        <v-menu
+          v-model="showSearchResults"
+          activator="parent"
+          :close-on-content-click="true"
+          max-height="400"
+          max-width="320"
+          offset-y
+          location="bottom"
+          origin="top center"
+          transition="scale-transition"
+          class="mt-1"
+        >
+          <v-card v-if="globalSearchResults.contacts.length" elevation="8" rounded="lg" border>
+            <v-list class="pa-0 py-2">
+              <v-list-subheader class="px-4 text-caption font-weight-bold">KHÁCH HÀNG TRÊN HỆ THỐNG</v-list-subheader>
+              <v-list-item
+                v-for="c in globalSearchResults.contacts"
+                :key="c.id"
+                @click="goToChatForContact(c)"
+                density="compact"
+                class="px-4"
+              >
+                <template #prepend>
+                  <v-avatar size="28" class="mr-3" color="primary" variant="tonal">
+                    <v-img v-if="c.avatarUrl" :src="c.avatarUrl" />
+                    <v-icon v-else size="16">mdi-account</v-icon>
+                  </v-avatar>
+                </template>
+                <v-list-item-title class="font-weight-medium">{{ c.fullName || c.phone }}</v-list-item-title>
+                <v-list-item-subtitle class="text-caption">
+                  <span v-if="c.conversations?.[0]?.zaloAccount?.displayName">
+                    Qua Zalo: {{ c.conversations[0].zaloAccount.displayName }}
+                  </span>
+                  <span v-else class="text-disabled">Chưa có liên hệ Zalo</span>
+                </v-list-item-subtitle>
+              </v-list-item>
+            </v-list>
+          </v-card>
+        </v-menu>
+      </div>
     </div>
 
     <!-- Tab switcher: Main / Other -->
@@ -172,7 +213,7 @@
       <v-progress-linear v-if="loading" indeterminate color="primary" />
 
       <v-list-item
-        v-for="conv in conversations"
+        v-for="conv in displayConversations"
         :key="conv.id"
         :active="conv.id === selectedId"
         @click="$emit('select', conv.id)"
@@ -218,7 +259,7 @@
         </template>
       </v-list-item>
 
-      <div v-if="!loading && conversations.length === 0" class="text-center pa-8 text-grey">
+      <div v-if="!loading && displayConversations.length === 0" class="text-center pa-8 text-grey">
         Chưa có cuộc trò chuyện nào
       </div>
     </v-list>
@@ -251,11 +292,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import type { Conversation, AiSentiment } from '@/composables/use-chat';
 import { api } from '@/api/index';
 import AiSentimentBadge from '@/components/ai/ai-sentiment-badge.vue';
 
-defineProps<{
+const props = defineProps<{
   conversations: Conversation[];
   selectedId: string | null;
   loading: boolean;
@@ -273,6 +315,77 @@ const emit = defineEmits<{
 
 // ── Tab state ──────────────────────────────────────────────────────────────
 const activeTab = ref('main');
+const router = useRouter();
+
+const displayConversations = computed(() => {
+  return props.conversations.filter((conv: Conversation) => {
+    // Luôn hiển thị conversation đang được chọn
+    if (conv.id === props.selectedId) return true;
+    // Ẩn conversation nếu không có tin nhắn
+    if (!conv.messages || conv.messages.length === 0) return false;
+    return true;
+  });
+});
+
+// ── Global Search State ───────────────────────────────────────────────────
+interface ContactResult {
+  id: string;
+  fullName: string | null;
+  phone: string | null;
+  avatarUrl: string | null;
+  conversations?: {
+    id: string;
+    zaloAccount?: { displayName: string | null };
+  }[];
+}
+
+const showSearchResults = ref(false);
+const globalSearchResults = ref<{ contacts: ContactResult[] }>({ contacts: [] });
+let globalSearchTimeout: ReturnType<typeof setTimeout>;
+
+function onSearchUpdate(val: string) {
+  emit('update:search', val);
+  
+  clearTimeout(globalSearchTimeout);
+  if (!val || val.length < 2) {
+    showSearchResults.value = false;
+    return;
+  }
+  
+  globalSearchTimeout = setTimeout(async () => {
+    try {
+      const res = await api.get('/search', { params: { q: val } });
+      globalSearchResults.value.contacts = res.data.contacts || [];
+      showSearchResults.value = globalSearchResults.value.contacts.length > 0;
+    } catch {
+      // silently fail search
+    }
+  }, 300);
+}
+
+async function goToChatForContact(c: ContactResult) {
+  showSearchResults.value = false;
+  emit('update:search', ''); // Clear local search to show the new selected chat
+  
+  let convId = c.conversations?.[0]?.id;
+  
+  if (!convId) {
+    try {
+      const res = await api.post('/conversations/init', { contactId: c.id });
+      convId = res.data.conversationId;
+      // Trả tín hiệu refresh lại danh sách sidebar vì có box chat mới
+      emit('tab-changed', 'main'); 
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Không thể tạo cuộc trò chuyện Zalo với khách hàng này.');
+      return;
+    }
+  }
+
+  if (convId) {
+    router.push({ path: '/chat', query: { convId } });
+  }
+}
+
 
 // ── Context menu state ─────────────────────────────────────────────────────
 const contextMenu = reactive({
@@ -430,7 +543,7 @@ onMounted(async () => {
 // ── Utility functions ───────────────────────────────────────────────────────
 function lastMessagePreview(conv: Conversation): string {
   const msg = conv.messages?.[0];
-  if (!msg) return '';
+  if (!msg) return 'Chưa có tin nhắn';
   if (msg.isDeleted) return '(đã thu hồi)';
   const prefix = msg.senderType === 'self' ? 'Bạn: ' : '';
 

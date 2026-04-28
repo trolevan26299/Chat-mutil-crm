@@ -211,6 +211,8 @@ export function useChat() {
       const conv = conversations.value.find(c => c.id === convId);
       if (conv && convDetail.data.contact) {
         conv.contact = convDetail.data.contact;
+      } else if (!conv && convDetail.data) {
+        conversations.value.unshift(convDetail.data);
       }
     } catch {
       // Non-critical

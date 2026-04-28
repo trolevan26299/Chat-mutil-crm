@@ -179,7 +179,7 @@ const headers = [
   { title: 'Sale', key: 'assignedUser', sortable: false },
   { title: 'Điểm', key: 'leadScore', sortable: true, width: '80px' },
   { title: 'Hoạt động', key: 'lastActivity', sortable: true },
-  { title: '🤖 AI Auto-Reply', key: 'aiAutoReply', sortable: false, width: '130px' },
+  { title: 'AUTO-REPLY', key: 'aiAutoReply', sortable: false, width: '130px' },
 ];
 
 function sourceLabel(value: string) {

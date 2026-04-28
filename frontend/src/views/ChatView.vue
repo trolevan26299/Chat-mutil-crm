@@ -8,7 +8,7 @@
         :selected-id="selectedConvId"
         :loading="loadingConvs"
         v-model:search="searchQuery"
-        @select="selectConversation"
+        @select="handleSelectConversation"
         @filter-account="onFilterAccount"
         @update:filters="onFiltersUpdate"
         @conversation-moved="onConversationMoved"
@@ -54,6 +54,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import ConversationList from '@/components/chat/ConversationList.vue';
 import MessageThread from '@/components/chat/MessageThread.vue';
 import ChatContactPanel from '@/components/chat/ChatContactPanel.vue';
@@ -62,8 +63,10 @@ import MobileChatView from '@/views/MobileChatView.vue';
 import { useMobile } from '@/composables/use-mobile';
 
 const { isMobile } = useMobile();
+const route = useRoute();
 
 const {
+
   conversations, selectedConvId, selectedConv, messages,
   loadingConvs, loadingMsgs, sendingMsg, searchQuery, accountFilter, extraFilters,
   aiSuggestion, aiSuggestionLoading, aiSuggestionError,
@@ -72,6 +75,13 @@ const {
   generateAiSuggestion, generateAiSummary, generateAiSentiment,
   initSocket, destroySocket,
 } = useChat();
+
+const router = useRouter();
+
+function handleSelectConversation(id: string) {
+  selectConversation(id);
+  router.push({ query: { convId: id } });
+}
 
 function onFilterAccount(id: string | null) {
   accountFilter.value = id;
@@ -129,8 +139,19 @@ function stopResize() {
   document.body.style.userSelect = '';
 }
 
-onMounted(() => {
-  if (!isMobile.value) { fetchConversations(); fetchAiConfig(); initSocket(); }
+onMounted(async () => {
+  if (!isMobile.value) { 
+    await fetchConversations(); 
+    fetchAiConfig(); 
+    initSocket(); 
+    
+    if (route.query.convId) {
+      selectConversation(route.query.convId as string);
+    }
+  }
+});
+watch(() => route.query.convId, (newId) => {
+  if (newId) selectConversation(newId as string);
 });
 onUnmounted(() => {
   if (!isMobile.value) { destroySocket(); }
