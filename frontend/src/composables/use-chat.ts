@@ -14,13 +14,18 @@ export interface AiSentiment {
   reason: string;
 }
 
+export interface OpenRouterModel {
+  group: string;
+  title: string;
+  value: string;
+}
+
 export interface AiConfig {
-  provider: string;
   model: string;
   maxDaily: number;
   enabled: boolean;
-  hasAnthropicKey?: boolean;
-  hasGeminiKey?: boolean;
+  hasKey?: boolean;
+  availableModels?: OpenRouterModel[];
 }
 
 interface ConversationMessage {
@@ -72,8 +77,8 @@ export function useChat() {
   const aiSummaryLoading = ref(false);
   const aiSentiment = ref<AiSentiment | null>(null);
   const aiSentimentLoading = ref(false);
-  const aiUsage = ref({ usedToday: 0, maxDaily: 500, remaining: 500, enabled: true });
-  const aiConfig = ref<AiConfig>({ provider: 'anthropic', model: 'claude-sonnet-4-6', maxDaily: 500, enabled: true });
+  const aiUsage = ref({ usedToday: 0, maxDaily: 500, remaining: 500, enabled: true, costDaily: 0, costMonthly: 0, chartData: [0, 0, 0, 0, 0, 0, 0] });
+  const aiConfig = ref<AiConfig>({ model: 'google/gemini-2.0-flash-001', maxDaily: 500, enabled: true, hasKey: false, availableModels: [] });
   let socket: Socket | null = null;
 
   const selectedConv = computed(() =>
@@ -126,27 +131,24 @@ export function useChat() {
     try {
       const res = await api.get('/ai/config');
       aiConfig.value = {
-        provider: res.data.provider,
         model: res.data.model,
         maxDaily: res.data.maxDaily,
         enabled: res.data.enabled,
-        hasAnthropicKey: res.data.hasAnthropicKey,
-        hasGeminiKey: res.data.hasGeminiKey,
+        hasKey: res.data.hasKey,
+        availableModels: res.data.availableModels || [],
       };
     } catch (err) {
       console.error('Failed to fetch AI config:', err);
     }
   }
 
-  async function saveAiConfig(payload: AiConfig) {
+  async function saveAiConfig(payload: { model: string; maxDaily: number; enabled: boolean }) {
     const res = await api.put('/ai/config', payload);
     aiConfig.value = {
-      provider: res.data.provider,
+      ...aiConfig.value,
       model: res.data.model,
       maxDaily: res.data.maxDaily,
       enabled: res.data.enabled,
-      hasAnthropicKey: aiConfig.value.hasAnthropicKey,
-      hasGeminiKey: aiConfig.value.hasGeminiKey,
     };
   }
 
@@ -224,7 +226,10 @@ export function useChat() {
     } catch {
       // Ignore mark-read errors
     }
-    await Promise.allSettled([generateAiSummary(), generateAiSentiment(), fetchAiUsage()]);
+    // Note: AI Summary, Sentiment are NOT auto-called here.
+    // They only run when user explicitly clicks "Làm mới" in the right panel.
+    // This avoids unnecessary token usage on every conversation click.
+    fetchAiUsage().catch(() => {});
   }
 
   async function sendMessage(content: string, attachments?: any[], sticker?: any, quote?: any) {

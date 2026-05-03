@@ -1,6 +1,6 @@
 /**
  * Team management routes — CRUD for teams and member assignment within an org.
- * All routes require authentication; write operations require owner/admin role.
+ * Members now use the N-N TeamMember join table (one user can belong to many teams).
  */
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '../../shared/database/prisma-client.js';
@@ -17,10 +17,21 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
     const user = request.user!;
     const teams = await prisma.team.findMany({
       where: { orgId: user.orgId },
-      include: { users: { select: { id: true, fullName: true, email: true, role: true } } },
+      include: {
+        members: { select: { userId: true } }, // N-N count
+      },
       orderBy: { createdAt: 'asc' },
     });
-    return { teams };
+    return {
+      teams: teams.map(t => ({
+        id: t.id,
+        orgId: t.orgId,
+        name: t.name,
+        description: t.description,
+        memberCount: t.members.length,
+        createdAt: t.createdAt,
+      })),
+    };
   });
 
   // POST /api/v1/teams — create team (owner/admin only)
@@ -29,31 +40,31 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: requireRole('owner', 'admin') },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const user = request.user!;
-      const { name } = request.body as { name: string };
+      const { name, description } = request.body as { name: string; description?: string };
       if (!name?.trim()) return reply.status(400).send({ error: 'Tên nhóm là bắt buộc' });
 
       const team = await prisma.team.create({
-        data: { id: randomUUID(), orgId: user.orgId, name: name.trim() },
+        data: { id: randomUUID(), orgId: user.orgId, name: name.trim(), description: description?.trim() },
       });
       logger.info(`Team created: ${team.name} by ${user.email}`);
       return reply.status(201).send(team);
     },
   );
 
-  // PUT /api/v1/teams/:id — update team name (owner/admin only)
+  // PUT /api/v1/teams/:id — update team (owner/admin only)
   app.put(
     '/api/v1/teams/:id',
     { preHandler: requireRole('owner', 'admin') },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const user = request.user!;
       const { id } = request.params as { id: string };
-      const { name } = request.body as { name: string };
+      const { name, description } = request.body as { name: string; description?: string };
       if (!name?.trim()) return reply.status(400).send({ error: 'Tên nhóm là bắt buộc' });
 
       try {
         const team = await prisma.team.update({
           where: { id, orgId: user.orgId },
-          data: { name: name.trim() },
+          data: { name: name.trim(), description: description?.trim() ?? null },
         });
         return team;
       } catch {
@@ -62,7 +73,7 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // DELETE /api/v1/teams/:id — delete team (owner only, unassigns members first)
+  // DELETE /api/v1/teams/:id — delete team (owner only)
   app.delete(
     '/api/v1/teams/:id',
     { preHandler: requireRole('owner') },
@@ -73,7 +84,7 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
       const team = await prisma.team.findFirst({ where: { id, orgId: user.orgId } });
       if (!team) return reply.status(404).send({ error: 'Team not found' });
 
-      // Unassign all members before deleting
+      // Unassign legacy teamId references
       await prisma.user.updateMany({ where: { teamId: id }, data: { teamId: null } });
       await prisma.team.delete({ where: { id } });
 
@@ -82,47 +93,56 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // GET /api/v1/teams/:id/members — list members of a team
+  // GET /api/v1/teams/:id/members — list members via N-N TeamMember
   app.get('/api/v1/teams/:id/members', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = request.user!;
     const { id } = request.params as { id: string };
 
-    const team = await prisma.team.findFirst({
-      where: { id, orgId: user.orgId },
-      include: {
-        users: {
-          select: { id: true, fullName: true, email: true, role: true, isActive: true },
-        },
-      },
-    });
+    const team = await prisma.team.findFirst({ where: { id, orgId: user.orgId } });
     if (!team) return reply.status(404).send({ error: 'Team not found' });
 
-    return { members: team.users };
+    const members = await prisma.teamMember.findMany({
+      where: { teamId: id },
+      include: {
+        user: { select: { id: true, fullName: true, email: true, role: true, isActive: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return members.map(m => ({
+      id: m.id,
+      userId: m.userId,
+      role: m.role,
+      fullName: m.user.fullName,
+      email: m.user.email,
+      isActive: m.user.isActive,
+    }));
   });
 
-  // POST /api/v1/teams/:id/members — assign user to team (owner/admin only)
+  // POST /api/v1/teams/:id/members — add user to team via N-N (owner/admin only)
   app.post(
     '/api/v1/teams/:id/members',
     { preHandler: requireRole('owner', 'admin') },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const user = request.user!;
       const { id } = request.params as { id: string };
-      const { userId } = request.body as { userId: string };
+      const { userId, role } = request.body as { userId: string; role?: string };
       if (!userId) return reply.status(400).send({ error: 'userId là bắt buộc' });
 
       const team = await prisma.team.findFirst({ where: { id, orgId: user.orgId } });
       if (!team) return reply.status(404).send({ error: 'Team not found' });
 
-      try {
-        const updated = await prisma.user.update({
-          where: { id: userId, orgId: user.orgId },
-          data: { teamId: id },
-          select: { id: true, fullName: true, email: true, role: true, teamId: true },
-        });
-        return updated;
-      } catch {
-        return reply.status(404).send({ error: 'User not found in org' });
-      }
+      const targetUser = await prisma.user.findFirst({ where: { id: userId, orgId: user.orgId } });
+      if (!targetUser) return reply.status(404).send({ error: 'User not found in org' });
+
+      const member = await prisma.teamMember.upsert({
+        where: { teamId_userId: { teamId: id, userId } },
+        create: { id: randomUUID(), teamId: id, userId, role: role || 'member' },
+        update: { role: role || 'member' },
+        include: { user: { select: { id: true, fullName: true, email: true } } },
+      });
+
+      return reply.status(201).send(member);
     },
   );
 
@@ -137,15 +157,8 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
       const team = await prisma.team.findFirst({ where: { id, orgId: user.orgId } });
       if (!team) return reply.status(404).send({ error: 'Team not found' });
 
-      try {
-        await prisma.user.update({
-          where: { id: userId, orgId: user.orgId, teamId: id },
-          data: { teamId: null },
-        });
-        return { success: true };
-      } catch {
-        return reply.status(404).send({ error: 'User not in this team' });
-      }
+      await prisma.teamMember.deleteMany({ where: { teamId: id, userId } });
+      return { success: true };
     },
   );
 }

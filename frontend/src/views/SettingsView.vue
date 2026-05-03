@@ -9,6 +9,10 @@
       <v-tab value="users">Nhân viên</v-tab>
       <v-tab value="teams">Đội nhóm</v-tab>
       <v-tab value="org">Tổ chức</v-tab>
+      <v-tab value="ai">
+        <v-icon start>mdi-robot-outline</v-icon>
+        AI
+      </v-tab>
     </v-tabs>
 
     <v-window v-model="tab">
@@ -145,21 +149,228 @@
       <v-window-item value="org">
         <OrgSettings />
       </v-window-item>
+
+      <!-- Tab 4: AI Settings -->
+      <v-window-item value="ai">
+        <v-row>
+          <v-col cols="12" md="7" lg="6">
+            <!-- Status card -->
+            <v-card class="mb-4" elevation="0" border>
+              <v-card-item>
+                <template #prepend>
+                  <v-icon size="32" :color="aiConfig.hasKey ? 'success' : 'warning'">mdi-robot-outline</v-icon>
+                </template>
+                <v-card-title>OpenRouter AI</v-card-title>
+                <v-card-subtitle>
+                  <v-chip
+                    :color="aiConfig.hasKey ? 'success' : 'warning'"
+                    size="small"
+                    variant="flat"
+                    class="mr-2"
+                  >
+                    {{ aiConfig.hasKey ? 'API Key đã cấu hình' : 'Chưa có API Key' }}
+                  </v-chip>
+                  <v-chip
+                    :color="aiConfig.enabled ? 'primary' : 'default'"
+                    size="small"
+                    variant="flat"
+                  >
+                    {{ aiConfig.enabled ? 'Đang bật' : 'Đã tắt' }}
+                  </v-chip>
+                </v-card-subtitle>
+              </v-card-item>
+
+              <v-card-text>
+                <v-row dense class="text-center">
+                  <v-col cols="4">
+                    <div class="text-h5 font-weight-bold text-primary">{{ aiUsage.usedToday }}</div>
+                    <div class="text-caption text-grey">Đã dùng hôm nay</div>
+                  </v-col>
+                  <v-col cols="4">
+                    <div class="text-h5 font-weight-bold">{{ aiUsage.maxDaily }}</div>
+                    <div class="text-caption text-grey">Giới hạn / ngày</div>
+                  </v-col>
+                  <v-col cols="4">
+                    <div class="text-h5 font-weight-bold" :class="aiUsage.remaining > 0 ? 'text-success' : 'text-error'">
+                      {{ aiUsage.remaining }}
+                    </div>
+                    <div class="text-caption text-grey">Còn lại</div>
+                  </v-col>
+                </v-row>
+
+                <v-progress-linear
+                  class="mt-3"
+                  :model-value="aiUsage.maxDaily > 0 ? (aiUsage.usedToday / aiUsage.maxDaily) * 100 : 0"
+                  color="primary"
+                  bg-color="grey-lighten-3"
+                  rounded
+                  height="6"
+                />
+
+                <v-divider class="my-4"></v-divider>
+                
+                <v-row dense class="text-center mb-4">
+                  <v-col cols="6">
+                    <div class="text-h6 text-success">${{ Number(aiUsage.costDaily || 0).toFixed(4) }}</div>
+                    <div class="text-caption text-grey">Chi phí hôm nay</div>
+                  </v-col>
+                  <v-col cols="6">
+                    <div class="text-h6 text-primary">${{ Number(aiUsage.costMonthly || 0).toFixed(4) }}</div>
+                    <div class="text-caption text-grey">Chi phí tháng này</div>
+                  </v-col>
+                </v-row>
+
+                <div class="text-caption text-grey mb-2">Tần suất dùng AI (7 ngày qua)</div>
+                <div style="height: 180px; width: 100%;">
+                  <Bar v-if="aiChartData" :data="aiChartData" :options="aiChartOptions" />
+                </div>
+              </v-card-text>
+            </v-card>
+
+            <!-- Config form -->
+            <v-card elevation="0" border>
+              <v-card-title class="text-body-1 font-weight-bold pa-4 pb-0">Cấu hình AI</v-card-title>
+              <v-card-text class="pa-4">
+                <!-- Enable toggle -->
+                <div class="d-flex align-center justify-space-between mb-4 pa-3 rounded" style="background: rgba(var(--v-theme-surface-variant), 0.4)">
+                  <div>
+                    <div class="text-body-2 font-weight-medium">Bật / Tắt AI</div>
+                    <div class="text-caption text-grey">Tắt để ngưng toàn bộ tính năng AI</div>
+                  </div>
+                  <v-switch
+                    v-model="aiForm.enabled"
+                    color="primary"
+                    hide-details
+                    density="compact"
+                  />
+                </div>
+
+                <!-- Model picker -->
+                <v-select
+                  v-model="aiForm.model"
+                  :items="groupedModels"
+                  item-title="title"
+                  item-value="value"
+                  label="Model AI"
+                  prepend-inner-icon="mdi-brain"
+                  variant="outlined"
+                  density="comfortable"
+                  class="mb-3"
+                >
+                  <template #item="{ item, props: itemProps }">
+                    <v-list-item v-bind="itemProps">
+                      <template #prepend>
+                        <v-chip size="x-small" :color="groupColor((item as any).raw?.group)" variant="flat" class="mr-2">
+                          {{ (item as any).raw?.group }}
+                        </v-chip>
+                      </template>
+                    </v-list-item>
+                  </template>
+                  <template #selection>
+                    <template v-if="currentModelMeta">
+                      <v-chip size="small" :color="groupColor(currentModelMeta.group)" variant="flat" class="mr-2">
+                        {{ currentModelMeta.group }}
+                      </v-chip>
+                      {{ currentModelMeta.title }}
+                    </template>
+                    <span v-else class="text-grey">{{ aiForm.model }}</span>
+                  </template>
+                </v-select>
+
+                <!-- Daily limit -->
+                <v-text-field
+                  v-model.number="aiForm.maxDaily"
+                  label="Giới hạn dùng / ngày"
+                  type="number"
+                  :min="1"
+                  :max="10000"
+                  prepend-inner-icon="mdi-counter"
+                  variant="outlined"
+                  density="comfortable"
+                  hint="Số lần gọi AI tối đa trong 1 ngày"
+                  persistent-hint
+                  class="mb-4"
+                />
+
+                <v-alert v-if="aiSaveError" type="error" density="compact" variant="tonal" class="mb-3">
+                  {{ aiSaveError }}
+                </v-alert>
+                <v-alert v-if="aiSaveSuccess" type="success" density="compact" variant="tonal" class="mb-3">
+                  Đã lưu cấu hình AI!
+                </v-alert>
+              </v-card-text>
+
+              <v-card-actions class="pa-4 pt-0">
+                <v-spacer />
+                <v-btn
+                  color="primary"
+                  variant="flat"
+                  :loading="aiSaving"
+                  prepend-icon="mdi-content-save-outline"
+                  @click="handleSaveAi"
+                >
+                  Lưu cấu hình
+                </v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-col>
+
+          <!-- Right: info panel -->
+          <v-col cols="12" md="5" lg="6">
+            <v-card elevation="0" border>
+              <v-card-title class="text-body-1 font-weight-bold pa-4 pb-2">Về OpenRouter</v-card-title>
+              <v-card-text class="pa-4">
+                <p class="text-body-2 mb-3">
+                  <strong>OpenRouter</strong> là cổng API thống nhất giúp truy cập hàng trăm model AI
+                  (Claude, GPT, Gemini, Llama...) chỉ với một API key duy nhất.
+                </p>
+                <v-divider class="mb-3" />
+                <div class="text-caption text-grey mb-1">Model đang chọn</div>
+                <v-chip color="primary" variant="flat" size="small" class="mb-3">
+                  {{ aiForm.model || aiConfig.model }}
+                </v-chip>
+                <v-divider class="mb-3" />
+                <div class="text-caption text-grey mb-2">Model khả dụng ({{ (aiConfig.availableModels || []).length }})</div>
+                <div class="d-flex flex-wrap gap-1">
+                  <v-chip
+                    v-for="m in (aiConfig.availableModels || [])"
+                    :key="m.value"
+                    size="x-small"
+                    :color="groupColor(m.group)"
+                    variant="tonal"
+                    :class="{ 'opacity-100': aiForm.model === m.value, 'opacity-50': aiForm.model !== m.value }"
+                    style="cursor: pointer"
+                    @click="aiForm.model = m.value"
+                  >
+                    {{ m.title }}
+                  </v-chip>
+                </div>
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
+      </v-window-item>
     </v-window>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useUsers, type OrgUser } from '@/composables/use-users';
 import { useAuthStore } from '@/stores/auth';
 import { useMobile } from '@/composables/use-mobile';
+import { useChat } from '@/composables/use-chat';
 import TeamManagement from '@/components/settings/TeamManagement.vue';
 import OrgSettings from '@/components/settings/OrgSettings.vue';
+
+import { Bar } from 'vue-chartjs';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 const { users, loading, error, fetchUsers, createUser, updateUser, resetPassword, deleteUser } = useUsers();
 const authStore = useAuthStore();
 const { isMobile } = useMobile();
+const { aiConfig, aiUsage, fetchAiConfig, saveAiConfig, fetchAiUsage } = useChat();
 
 const tab = ref('users');
 const showCreate = ref(false);
@@ -256,6 +467,93 @@ async function handleDelete() {
   saving.value = false;
   if (res.ok) { showDelete.value = false; }
 }
+
+// ---- AI tab state ----
+const aiForm = ref({ model: 'google/gemini-2.0-flash-001', maxDaily: 500, enabled: true });
+const aiSaving = ref(false);
+const aiSaveError = ref('');
+const aiSaveSuccess = ref(false);
+
+const GROUP_COLORS: Record<string, string> = {
+  Anthropic: 'deep-orange',
+  Google: 'blue',
+  OpenAI: 'green',
+  Meta: 'purple',
+  DeepSeek: 'indigo',
+  Qwen: 'cyan',
+  Mistral: 'teal',
+};
+
+function groupColor(group: string): string {
+  return GROUP_COLORS[group] || 'grey';
+}
+
+const groupedModels = computed(() => {
+  const models = aiConfig.value.availableModels || [];
+  return models.map(m => ({ ...m, title: m.title, value: m.value }));
+});
+
+// Find the currently selected model's metadata for the selection slot
+const currentModelMeta = computed(() =>
+  groupedModels.value.find(m => m.value === aiForm.value.model) || null,
+);
+
+const aiChartData = computed(() => {
+  const dataArray = aiUsage.value.chartData || [0, 0, 0, 0, 0, 0, 0];
+  const labels = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    labels.push(`${d.getDate()}/${d.getMonth() + 1}`);
+  }
+  return {
+    labels,
+    datasets: [{
+      label: 'Lần dùng',
+      data: dataArray,
+      backgroundColor: '#1565C0',
+      borderRadius: 4,
+    }],
+  };
+});
+
+const aiChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: false } },
+  scales: {
+    y: { beginAtZero: true, ticks: { stepSize: 1 } },
+  },
+};
+
+async function handleSaveAi() {
+  aiSaving.value = true;
+  aiSaveError.value = '';
+  aiSaveSuccess.value = false;
+  try {
+    await saveAiConfig({ model: aiForm.value.model, maxDaily: aiForm.value.maxDaily, enabled: aiForm.value.enabled });
+    aiSaveSuccess.value = true;
+    setTimeout(() => { aiSaveSuccess.value = false; }, 3000);
+  } catch (err: any) {
+    aiSaveError.value = err?.response?.data?.error || 'Lỗi khi lưu cấu hình AI';
+  } finally {
+    aiSaving.value = false;
+  }
+}
+
+// Sync form when config loads
+watch(aiConfig, (cfg) => {
+  aiForm.value.model = cfg.model;
+  aiForm.value.maxDaily = cfg.maxDaily;
+  aiForm.value.enabled = cfg.enabled;
+}, { immediate: true });
+
+// Load AI config+usage when AI tab opens
+watch(tab, async (val) => {
+  if (val === 'ai') {
+    await Promise.all([fetchAiConfig(), fetchAiUsage()]);
+  }
+});
 
 onMounted(fetchUsers);
 </script>

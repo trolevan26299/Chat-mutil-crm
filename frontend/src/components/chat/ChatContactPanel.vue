@@ -83,16 +83,25 @@
 
       <AiSummaryCard :summary="aiSummary" :loading="aiSummaryLoading" @refresh="$emit('refresh-ai-summary')" />
 
-      <v-card variant="outlined" class="mb-3">
-        <v-card-title class="d-flex align-center text-body-1">
-          <v-icon class="mr-2">mdi-chart-bell-curve-cumulative</v-icon>
-          Cảm xúc khách hàng
-          <v-spacer />
-          <v-btn size="small" variant="text" :loading="aiSentimentLoading" @click="$emit('refresh-ai-sentiment')">Làm mới</v-btn>
-        </v-card-title>
-        <v-card-text>
+      <v-card variant="outlined" class="mb-3 overflow-hidden">
+        <div class="d-flex align-center px-3 pt-3 pb-1" style="gap: 8px; flex-wrap: nowrap;">
+          <v-icon size="18" color="secondary">mdi-chart-bell-curve-cumulative</v-icon>
+          <span class="text-body-2 font-weight-bold" style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Cảm xúc khách hàng</span>
+          <v-btn
+            size="small"
+            variant="tonal"
+            color="secondary"
+            density="compact"
+            :loading="aiSentimentLoading"
+            prepend-icon="mdi-emoticon-outline"
+            style="flex-shrink: 0; font-size: 11px;"
+            @click="$emit('refresh-ai-sentiment')"
+          >Phân tích</v-btn>
+        </div>
+        <v-card-text class="pt-1">
           <AiSentimentBadge :sentiment="aiSentiment" />
-          <div v-if="aiSentiment?.reason" class="text-body-2 mt-2">{{ aiSentiment.reason }}</div>
+          <div v-if="aiSentiment?.reason" class="text-body-2 mt-2" style="line-height: 1.6;">{{ aiSentiment.reason }}</div>
+          <div v-else-if="!aiSentiment" class="text-body-2 text-grey font-italic">Chưa phân tích.</div>
         </v-card-text>
       </v-card>
 

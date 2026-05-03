@@ -6,14 +6,13 @@
 import { randomUUID } from 'node:crypto';
 import { prisma } from '../../../shared/database/prisma-client.js';
 import { logger } from '../../../shared/utils/logger.js';
-import { getAiConfig, getProviderApiKey } from '../../ai/ai-service.js';
-import { getProviderConfig } from '../../ai/provider-registry.js';
-import { generateWithAnthropic } from '../../ai/providers/anthropic.js';
-import { generateWithGemini } from '../../ai/providers/gemini.js';
+import { config } from '../../../config/index.js';
+import { getAiConfig } from '../../ai/ai-service.js';
 import { generateWithOpenaiCompat } from '../../ai/providers/openai-compat.js';
 import { buildReplyDraftPrompt } from '../../ai/prompts/reply-draft.js';
 import { zaloPool } from '../../zalo/zalo-pool.js';
 import { zaloRateLimiter } from '../../zalo/zalo-rate-limiter.js';
+import { retrieveContext, buildRagContext } from '../../knowledge/rag-retrieval.js';
 
 type MessageRow = { senderType: string; senderName: string | null; content: string | null; sentAt: Date };
 
@@ -36,17 +35,6 @@ function buildContext(messages: MessageRow[]): string {
     .join('\n');
 }
 
-async function callAi(orgId: string, provider: string, model: string, apiKey: string, system: string, prompt: string): Promise<string> {
-  const providerDef = getProviderConfig(provider);
-  const baseUrl = providerDef?.baseUrl || '';
-  if (provider === 'anthropic') return generateWithAnthropic(baseUrl, apiKey, model, system, prompt);
-  if (provider === 'gemini')    return generateWithGemini(baseUrl, apiKey, model, system, prompt);
-  if (provider === 'openai')    return generateWithOpenaiCompat(`${baseUrl}/v1/chat/completions`, apiKey, model, system, prompt);
-  if (provider === 'qwen')      return generateWithOpenaiCompat(`${baseUrl}/compatible-mode/v1/chat/completions`, apiKey, model, system, prompt);
-  if (provider === 'kimi')      return generateWithOpenaiCompat(`${baseUrl}/v1/chat/completions`, apiKey, model, system, prompt);
-  throw new Error(`Unsupported AI provider: ${provider}`);
-}
-
 export async function aiReplyAction(input: {
   orgId: string;
   conversationId: string;
@@ -63,9 +51,9 @@ export async function aiReplyAction(input: {
     return false;
   }
 
-  const apiKey = await getProviderApiKey(input.orgId, aiConfig.provider);
+  const apiKey = config.openrouterApiKey;
   if (!apiKey) {
-    logger.warn('[ai-reply] No AI API key configured, skipping');
+    logger.warn('[ai-reply] No OpenRouter API key configured, skipping');
     return false;
   }
 
@@ -89,24 +77,84 @@ export async function aiReplyAction(input: {
   const language = detectLanguage(contextText);
   const customerName = conversation.contact?.fullName || 'customer';
 
+  // --- RAG: Find teams managing this Zalo account and retrieve knowledge context ---
+  // Take the last 10 messages for better semantic search context instead of just the last one
+  const recentMessages = messages.slice(-10);
+  const recentContextQuery = recentMessages
+    .filter(m => m.content)
+    .map(m => `${m.senderType === 'contact' ? 'Khách hàng' : 'Nhân viên'}: ${m.content}`)
+    .join('\n');
+    
+  let ragContext = '';
+  try {
+    // Find users who have access to this Zalo account
+    const accessUsers = await prisma.zaloAccountAccess.findMany({
+      where: { zaloAccountId: input.zaloAccountId },
+      select: { userId: true },
+    });
+    const userIds = accessUsers.map(a => a.userId);
+
+    let teamIds: string[] = [];
+    if (userIds.length > 0) {
+      // Find all teams these users belong to (via TeamMember N-N)
+      const teamMemberships = await prisma.teamMember.findMany({
+        where: { userId: { in: userIds } },
+        select: { teamId: true },
+      });
+      teamIds = [...new Set(teamMemberships.map(m => m.teamId))];
+    } else {
+      // Fallback: if no explicit access control, use all teams in the organization
+      const orgTeams = await prisma.team.findMany({
+        where: { orgId: input.orgId },
+        select: { id: true }
+      });
+      teamIds = orgTeams.map(t => t.id);
+    }
+
+    if (teamIds.length > 0 && recentContextQuery) {
+      const chunks = await retrieveContext(recentContextQuery, teamIds);
+      ragContext = buildRagContext(chunks);
+      if (ragContext) {
+        logger.info(`[ai-reply] RAG context found: ${chunks.length} chunks from ${teamIds.length} teams`);
+      }
+    }
+  } catch (err) {
+    logger.warn('[ai-reply] RAG retrieval failed (non-critical):', err);
+  }
+  // --- End RAG ---
+
   const system = buildReplyDraftPrompt(language);
   const userPrompt = [
+    ragContext, // Inject knowledge context BEFORE conversation
     '<conversation_context>',
     `Customer: ${customerName}`,
     contextText,
     '</conversation_context>',
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 
-  // Generate AI reply
+  // Generate AI reply via OpenRouter
   let replyText: string;
   try {
-    replyText = (await callAi(input.orgId, aiConfig.provider, aiConfig.model, apiKey, system, userPrompt)).trim();
+    replyText = (await generateWithOpenaiCompat(
+      config.openrouterBaseUrl,
+      apiKey,
+      aiConfig.model,
+      system,
+      userPrompt,
+    )).trim();
   } catch (err) {
     logger.error('[ai-reply] AI generation failed:', err);
     return false;
   }
 
   if (!replyText) return false;
+
+  // Split into multiple messages on the ---MSG--- delimiter
+  const MSG_DELIMITER = '---MSG---';
+  const messageParts = replyText
+    .split(MSG_DELIMITER)
+    .map(p => p.trim())
+    .filter(p => p.length > 0);
 
   // Send via Zalo
   const instance = zaloPool.getInstance(input.zaloAccountId);
@@ -122,31 +170,52 @@ export async function aiReplyAction(input: {
   }
 
   try {
-    zaloRateLimiter.recordSend(input.zaloAccountId);
     const threadType = input.threadType === 'group' ? 1 : 0;
-    const sendResult = await instance.api.sendMessage({ msg: replyText }, input.threadId, threadType);
-    const zaloMsgId = String(sendResult?.msgId || sendResult?.data?.msgId || '');
 
-    await prisma.message.create({
-      data: {
-        id: randomUUID(),
-        conversationId: input.conversationId,
-        zaloMsgId: zaloMsgId || null,
-        senderType: 'self',
-        senderUid: null,
-        senderName: 'AI Trợ lý',
-        content: replyText,
-        contentType: 'text',
-        sentAt: new Date(),
-      },
-    });
+    for (let i = 0; i < messageParts.length; i++) {
+      const part = messageParts[i];
+
+      // Small human-like delay between messages (skip before first message)
+      if (i > 0) {
+        await new Promise(r => setTimeout(r, 1200 + Math.random() * 800)); // 1.2–2s
+      }
+
+      zaloRateLimiter.recordSend(input.zaloAccountId);
+      const sendResult = await instance.api.sendMessage({ msg: part }, input.threadId, threadType);
+      const zaloMsgId = String(sendResult?.msgId || sendResult?.data?.msgId || '');
+
+      await prisma.message.create({
+        data: {
+          id: randomUUID(),
+          conversationId: input.conversationId,
+          zaloMsgId: zaloMsgId || null,
+          senderType: 'self',
+          senderUid: null,
+          senderName: 'AI Trợ lý',
+          content: part,
+          contentType: 'text',
+          sentAt: new Date(),
+        },
+      });
+    }
 
     await prisma.conversation.update({
       where: { id: input.conversationId },
       data: { lastMessageAt: new Date(), isReplied: true, unreadCount: 0 },
     });
 
-    logger.info(`[ai-reply] Auto-replied to conversation ${input.conversationId}`);
+    // Record AI usage (using the full combined text)
+    await prisma.aiSuggestion.create({
+      data: {
+        orgId: input.orgId,
+        conversationId: input.conversationId,
+        type: 'reply_draft',
+        content: messageParts.join('\n'),
+        confidence: 0.8,
+      },
+    });
+
+    logger.info(`[ai-reply] Auto-replied to conversation ${input.conversationId} (${messageParts.length} messages)`);
     return true;
   } catch (err) {
     logger.error('[ai-reply] Failed to send message:', err);

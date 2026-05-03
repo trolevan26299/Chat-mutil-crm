@@ -13,6 +13,7 @@ services:
       - .env
     environment:
       - NODE_ENV=production
+      - TZ=Asia/Ho_Chi_Minh
       - DATABASE_URL=postgresql://${DB_USER:-crmuser}:${DB_PASSWORD}@db:5432/${DB_NAME:-zalocrm}
     depends_on:
       db:
@@ -25,13 +26,14 @@ services:
       - no-new-privileges:true
 
   db:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: zalo-crm-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER:-crmuser}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME:-zalocrm}
+      - TZ=Asia/Ho_Chi_Minh
+      - POSTGRES_USER=${DB_USER:-crmuser}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME:-zalocrm}
     volumes:
       - pg_data:/var/lib/postgresql/data
     ports:

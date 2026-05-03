@@ -46,11 +46,16 @@ import { templateRoutes } from './modules/automation/template-routes.js';
 import { aiRoutes } from './modules/ai/ai-routes.js';
 import { campaignRoutes } from './modules/campaign/campaign-routes.js';
 import { startCampaignScheduler } from './modules/campaign/campaign-scheduler.js';
+import { knowledgeRoutes } from './modules/knowledge/knowledge-routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function bootstrap() {
   const app = Fastify({ logger: false, bodyLimit: 50 * 1024 * 1024 }); // 50MB limit for image/file uploads
+
+  // Multipart plugin for file uploads (PDF knowledge base)
+  const fastifyMultipart = (await import('@fastify/multipart')).default;
+  await app.register(fastifyMultipart, { limits: { fileSize: 20 * 1024 * 1024 } }); // 20MB max file
 
   // ── Plugins ──────────────────────────────────────────────────────────────
 
@@ -129,6 +134,7 @@ async function bootstrap() {
   await app.register(templateRoutes);
   await app.register(aiRoutes);
   await app.register(campaignRoutes);
+  await app.register(knowledgeRoutes);
 
   // ── Public sticker image proxy (no auth needed — browser img tag) ──────────
   app.get('/api/v1/sticker-image', async (request: FastifyRequest, reply: FastifyReply) => {

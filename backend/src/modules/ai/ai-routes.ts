@@ -3,7 +3,7 @@ import { authMiddleware } from '../auth/auth-middleware.js';
 import { requireRole } from '../auth/role-middleware.js';
 import { requireZaloAccess } from '../zalo/zalo-access-middleware.js';
 import { getAiConfig, getAiUsage, updateAiConfig, generateAiOutput } from './ai-service.js';
-import { getAvailableProviders } from './provider-registry.js';
+import { OPENROUTER_MODELS } from './provider-registry.js';
 import { logger } from '../../shared/utils/logger.js';
 import { prisma } from '../../shared/database/prisma-client.js';
 
@@ -46,9 +46,9 @@ function sendHandledError(reply: FastifyReply, err: unknown, fallback: string) {
 export async function aiRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authMiddleware);
 
-  /* Returns available AI providers + their models (based on .env config) */
-  app.get('/api/v1/ai/providers', async () => {
-    return getAvailableProviders();
+  /* Returns all available OpenRouter models */
+  app.get('/api/v1/ai/models', async () => {
+    return OPENROUTER_MODELS;
   });
 
   app.get('/api/v1/ai/config', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -62,7 +62,7 @@ export async function aiRoutes(app: FastifyInstance) {
 
   app.put('/api/v1/ai/config', { preHandler: requireRole('owner', 'admin') }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const body = request.body as { provider?: string; model?: string; maxDaily?: number; enabled?: boolean };
+      const body = request.body as { model?: string; maxDaily?: number; enabled?: boolean };
       if (body.maxDaily !== undefined && body.maxDaily < 1) return reply.status(400).send({ error: 'maxDaily must be at least 1' });
       return await updateAiConfig(request.user!.orgId, body);
     } catch (err) {

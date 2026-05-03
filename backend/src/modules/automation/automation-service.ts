@@ -5,6 +5,7 @@ import { updateStatusAction } from './actions/update-status-action.js';
 import { createAppointmentAction } from './actions/create-appointment-action.js';
 import { sendTemplateAction } from './actions/send-template-action.js';
 import { aiReplyAction } from './actions/ai-reply-action.js';
+import { scheduleAiReply } from './actions/ai-reply-debounce.js';
 
 export type AutomationTriggerType = 'message_received' | 'contact_created' | 'status_changed';
 
@@ -156,7 +157,9 @@ async function executeAction(action: AutomationAction, context: AutomationContex
   }
 
   if (action.type === 'ai_reply' && context.conversation?.id && context.conversation.zaloAccountId) {
-    await aiReplyAction({
+    // Use debounce: wait 60s of silence before replying so the customer
+    // has time to finish their full message before the bot responds.
+    scheduleAiReply({
       orgId: context.orgId,
       conversationId: context.conversation.id,
       zaloAccountId: context.conversation.zaloAccountId,

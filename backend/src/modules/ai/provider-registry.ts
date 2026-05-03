@@ -1,92 +1,40 @@
 /**
- * Central AI provider registry.
- * Reads env-based config to build list of available providers and their models.
- * Only providers with an AUTH_TOKEN are considered "available".
+ * OpenRouter model catalog.
+ * UI uses this list to let admins pick which model to use.
+ * Full list: https://openrouter.ai/models
  */
-import { config } from '../../config/index.js';
 
-export type ProviderModel = { title: string; value: string };
-
-export type ProviderDef = {
-  id: string;
-  name: string;
-  baseUrl: string;
-  authToken: string;
-  models: ProviderModel[];
+export type OpenRouterModel = {
+  group: string;
+  title: string;
+  value: string; // model slug passed to OpenRouter API
 };
 
-/** Helper: include model only if env var is set */
-function m(title: string, value: string): ProviderModel | null {
-  return value ? { title, value } : null;
-}
+export const OPENROUTER_MODELS: OpenRouterModel[] = [
+  // Anthropic
+  { group: 'Anthropic', title: 'Claude Sonnet 4.5',     value: 'anthropic/claude-sonnet-4-5' },
+  { group: 'Anthropic', title: 'Claude 3.5 Sonnet',     value: 'anthropic/claude-3.5-sonnet' },
+  { group: 'Anthropic', title: 'Claude 3.5 Haiku',      value: 'anthropic/claude-3.5-haiku' },
+  { group: 'Anthropic', title: 'Claude 3 Opus',         value: 'anthropic/claude-3-opus' },
+  // Google
+  { group: 'Google',    title: 'Gemini 2.0 Flash',      value: 'google/gemini-2.0-flash-001' },
+  { group: 'Google',    title: 'Gemini 2.5 Flash',      value: 'google/gemini-2.5-flash' },
+  { group: 'Google',    title: 'Gemini 1.5 Pro',        value: 'google/gemini-pro-1.5' },
+  // OpenAI
+  { group: 'OpenAI',   title: 'GPT-4o',                value: 'openai/gpt-4o' },
+  { group: 'OpenAI',   title: 'GPT-4o Mini',           value: 'openai/gpt-4o-mini' },
+  { group: 'OpenAI',   title: 'o4 Mini',               value: 'openai/o4-mini' },
+  // Meta Llama
+  { group: 'Meta',     title: 'Llama 3.3 70B',         value: 'meta-llama/llama-3.3-70b-instruct' },
+  { group: 'Meta',     title: 'Llama 3.1 8B',          value: 'meta-llama/llama-3.1-8b-instruct' },
+  // DeepSeek
+  { group: 'DeepSeek', title: 'DeepSeek Chat V3',      value: 'deepseek/deepseek-chat-v3-0324' },
+  { group: 'DeepSeek', title: 'DeepSeek R1',           value: 'deepseek/deepseek-r1' },
+  // Qwen
+  { group: 'Qwen',     title: 'Qwen3 235B',            value: 'qwen/qwen3-235b-a22b' },
+  { group: 'Qwen',     title: 'Qwen3 30B',             value: 'qwen/qwen3-30b-a3b' },
+  // Mistral
+  { group: 'Mistral',  title: 'Mistral Large',         value: 'mistralai/mistral-large' },
+  { group: 'Mistral',  title: 'Mistral Small 3.1 24B', value: 'mistralai/mistral-small-3.1-24b-instruct' },
+];
 
-/** Build full provider definitions from config */
-function buildProviders(): ProviderDef[] {
-  return [
-    {
-      id: 'anthropic',
-      name: 'Anthropic',
-      baseUrl: config.anthropicBaseUrl,
-      authToken: config.anthropicAuthToken,
-      models: [
-        m('Claude Opus', config.anthropicDefaultOpusModel),
-        m('Claude Sonnet', config.anthropicDefaultSonnetModel),
-        m('Claude Haiku', config.anthropicDefaultHaikuModel),
-      ].filter(Boolean) as ProviderModel[],
-    },
-    {
-      id: 'gemini',
-      name: 'Gemini',
-      baseUrl: config.geminiBaseUrl,
-      authToken: config.geminiAuthToken,
-      models: [
-        m('Gemini Pro', config.geminiDefaultProModel),
-        m('Gemini Flash', config.geminiDefaultFlashModel),
-      ].filter(Boolean) as ProviderModel[],
-    },
-    {
-      id: 'openai',
-      name: 'OpenAI',
-      baseUrl: config.openaiBaseUrl,
-      authToken: config.openaiAuthToken,
-      models: [
-        m('GPT-4o', config.openaiDefaultGpt4oModel),
-        m('GPT-4o Mini', config.openaiDefaultGpt4oMiniModel),
-      ].filter(Boolean) as ProviderModel[],
-    },
-    {
-      id: 'qwen',
-      name: 'Qwen',
-      baseUrl: config.qwenBaseUrl,
-      authToken: config.qwenAuthToken,
-      models: [
-        m('Qwen Plus', config.qwenDefaultPlusModel),
-        m('Qwen Turbo', config.qwenDefaultTurboModel),
-        m('Qwen Max', config.qwenDefaultMaxModel),
-      ].filter(Boolean) as ProviderModel[],
-    },
-    {
-      id: 'kimi',
-      name: 'Kimi',
-      baseUrl: config.kimiBaseUrl,
-      authToken: config.kimiAuthToken,
-      models: [
-        m('Moonshot V1', config.kimiDefaultMoonshotV1Model),
-      ].filter(Boolean) as ProviderModel[],
-    },
-  ];
-}
-
-const providers = buildProviders();
-
-/** Returns providers that have an auth token AND at least one model configured */
-export function getAvailableProviders(): Omit<ProviderDef, 'authToken'>[] {
-  return providers
-    .filter((p) => p.authToken && p.models.length > 0)
-    .map(({ authToken: _, ...rest }) => rest);
-}
-
-/** Returns full config (including authToken) for a single provider */
-export function getProviderConfig(providerId: string): ProviderDef | undefined {
-  return providers.find((p) => p.id === providerId);
-}

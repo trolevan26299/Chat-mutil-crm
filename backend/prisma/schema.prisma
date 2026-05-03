@@ -1,9 +1,11 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  extensions = [pgvector(map: "vector")]
 }
 
 // Top-level org — every resource is scoped to an org
@@ -13,39 +15,100 @@ model Organization {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  teams         Team[]
-  users         User[]
-  zaloAccounts  ZaloAccount[]
-  contacts        Contact[]
-  conversations   Conversation[]
-  appointments    Appointment[]
-  activityLogs    ActivityLog[]
-  dailyStats      DailyMessageStat[]
-  settings        AppSetting[]
-  duplicateGroups DuplicateGroup[]
-  savedReports    SavedReport[]
-  integrations    Integration[]
-  automationRules AutomationRule[]
+  teams            Team[]
+  users            User[]
+  zaloAccounts     ZaloAccount[]
+  contacts         Contact[]
+  conversations    Conversation[]
+  appointments     Appointment[]
+  activityLogs     ActivityLog[]
+  dailyStats       DailyMessageStat[]
+  settings         AppSetting[]
+  duplicateGroups  DuplicateGroup[]
+  savedReports     SavedReport[]
+  integrations     Integration[]
+  automationRules  AutomationRule[]
   messageTemplates MessageTemplate[]
-  aiConfig        AiConfig?
-  aiSuggestions   AiSuggestion[]
-  campaignGroups  CampaignGroup[]
-  campaigns       Campaign[]
+  aiConfig         AiConfig?
+  aiSuggestions    AiSuggestion[]
+  campaignGroups   CampaignGroup[]
+  campaigns        Campaign[]
+  teamKnowledge    TeamKnowledge[]
 
   @@map("organizations")
 }
 
 // Team groups within an organization
 model Team {
-  id        String   @id @default(uuid())
-  orgId     String   @map("org_id")
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  name        String
+  description String?  // Mô tả đội nhóm / ngành nghề
+  createdAt   DateTime @default(now()) @map("created_at")
 
-  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  users User[]
+  org       Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  users     User[]          // backward compat
+  members   TeamMember[]
+  knowledge TeamKnowledge[]
 
   @@map("teams")
+}
+
+// N-N: User ↔ Team (1 nhân viên thuộc nhiều đội)
+model TeamMember {
+  id        String   @id @default(uuid())
+  teamId    String   @map("team_id")
+  userId    String   @map("user_id")
+  role      String   @default("member") // member | lead
+  createdAt DateTime @default(now()) @map("created_at")
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@map("team_members")
+}
+
+// Kho tri thức của đội nhóm (nguồn RAG)
+model TeamKnowledge {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  teamId      String   @map("team_id")
+  title       String
+  sourceType  String   @map("source_type") // "text" | "url" | "file"
+  content     String   @db.Text // Nội dung gốc (sau khi parse)
+  sourceUrl   String?  @map("source_url") // Nếu là URL
+  fileUrl     String?  @map("file_url")   // Nếu là file
+  status      String   @default("pending") // pending | indexing | indexed | failed
+  chunkCount  Int      @default(0) @map("chunk_count")
+  errorMsg    String?  @map("error_msg")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  org    Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  team   Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  chunks KnowledgeChunk[]
+
+  @@index([teamId, status])
+  @@map("team_knowledge")
+}
+
+// Các đoạn văn bản đã được embed thành vector
+model KnowledgeChunk {
+  id          String   @id @default(uuid())
+  knowledgeId String   @map("knowledge_id")
+  teamId      String   @map("team_id") // để filter nhanh
+  orgId       String   @map("org_id")
+  chunkIndex  Int      @map("chunk_index")
+  content     String   @db.Text
+  embedding   Unsupported("vector(768)")? // Gemini text-embedding-004
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  knowledge TeamKnowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+  @@index([knowledgeId])
+  @@map("knowledge_chunks")
 }
 
 // CRM user with role-based access
@@ -63,6 +126,7 @@ model User {
 
   org              Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
   team             Team?               @relation(fields: [teamId], references: [id])
+  teamMemberships  TeamMember[]
   zaloAccounts     ZaloAccount[]
   zaloAccess       ZaloAccountAccess[]
   assignedContacts Contact[]           @relation("AssignedContacts")
