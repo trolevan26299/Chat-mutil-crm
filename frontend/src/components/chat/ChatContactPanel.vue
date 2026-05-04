@@ -62,8 +62,10 @@
         Lưu thất bại, thử lại!
       </v-alert>
 
-      <!-- AI Auto-Reply Toggle -->
-      <v-card variant="outlined" class="mb-3">
+      <!-- AI Features (Only if enabled) -->
+      <template v-if="authStore.aiEnabled">
+        <!-- AI Auto-Reply Toggle -->
+        <v-card variant="outlined" class="mb-3">
         <v-card-text class="d-flex align-center py-2">
           <v-icon class="mr-2" :color="aiAutoReplyEnabled ? 'primary' : 'grey'">mdi-robot</v-icon>
           <div class="flex-grow-1">
@@ -104,6 +106,7 @@
           <div v-else-if="!aiSentiment" class="text-body-2 text-grey font-italic">Chưa phân tích.</div>
         </v-card-text>
       </v-card>
+      </template>
 
       <ChatAppointments
         v-if="props.contactId"
@@ -125,6 +128,9 @@ import AiSummaryCard from '@/components/ai/ai-summary-card.vue';
 import AiSentimentBadge from '@/components/ai/ai-sentiment-badge.vue';
 import { ref, watch } from 'vue';
 import { api } from '@/api/index';
+import { useAuthStore } from '@/stores/auth';
+
+const authStore = useAuthStore();
 
 const props = defineProps<{
   contactId: string | null;

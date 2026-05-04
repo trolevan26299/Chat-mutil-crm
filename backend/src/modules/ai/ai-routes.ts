@@ -6,6 +6,7 @@ import { getAiConfig, getAiUsage, updateAiConfig, generateAiOutput } from './ai-
 import { OPENROUTER_MODELS } from './provider-registry.js';
 import { logger } from '../../shared/utils/logger.js';
 import { prisma } from '../../shared/database/prisma-client.js';
+import { checkAiEnabled } from '../platform/tenant-limits.js';
 
 async function assertConversationReadAccess(request: FastifyRequest, reply: FastifyReply, conversationId: string) {
   const user = request.user!;
@@ -80,7 +81,7 @@ export async function aiRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post('/api/v1/ai/suggest', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/api/v1/ai/suggest', { preHandler: checkAiEnabled }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const body = request.body as { conversationId?: string; messageId?: string };
       if (!body.conversationId) return reply.status(400).send({ error: 'conversationId is required' });
@@ -93,7 +94,7 @@ export async function aiRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post('/api/v1/ai/summarize/:id', { preHandler: requireZaloAccess('read') }, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/api/v1/ai/summarize/:id', { preHandler: [checkAiEnabled, requireZaloAccess('read')] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { id } = request.params as { id: string };
       return await generateAiOutput({ orgId: request.user!.orgId, conversationId: id, type: 'summary' });
@@ -103,7 +104,7 @@ export async function aiRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post('/api/v1/ai/sentiment/:id', { preHandler: requireZaloAccess('read') }, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/api/v1/ai/sentiment/:id', { preHandler: [checkAiEnabled, requireZaloAccess('read')] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { id } = request.params as { id: string };
       return await generateAiOutput({ orgId: request.user!.orgId, conversationId: id, type: 'sentiment' });

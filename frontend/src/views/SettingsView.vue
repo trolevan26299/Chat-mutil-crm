@@ -9,7 +9,7 @@
       <v-tab value="users">Nhân viên</v-tab>
       <v-tab value="teams">Đội nhóm</v-tab>
       <v-tab value="org">Tổ chức</v-tab>
-      <v-tab value="ai">
+      <v-tab v-if="authStore.aiEnabled" value="ai">
         <v-icon start>mdi-robot-outline</v-icon>
         AI
       </v-tab>

@@ -8,12 +8,23 @@ datasource db {
   extensions = [pgvector(map: "vector")]
 }
 
-// Top-level org — every resource is scoped to an org
+// Top-level org — every resource is scoped to an org (tenant)
 model Organization {
-  id        String   @id @default(uuid())
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id           String    @id @default(uuid())
+  name         String
+  slug         String    @unique                // subdomain: "abc" → abc.chatcrm.org
+  plan         String    @default("trial")      // trial|basic_10|basic_10_ai|pro_30|pro_30_ai|enterprise|enterprise_ai
+  status       String    @default("active")     // active|suspended|expired
+  maxZalo      Int       @default(2)  @map("max_zalo")
+  aiEnabled    Boolean   @default(false) @map("ai_enabled")
+  expiresAt    DateTime? @map("expires_at")     // null = không giới hạn thời gian
+  logoUrl      String?   @map("logo_url")
+  primaryColor String?   @map("primary_color")  // hex color cho branding
+  contactName  String?   @map("contact_name")   // Tên người liên hệ
+  contactPhone String?   @map("contact_phone")  // SĐT liên hệ
+  notes        String?                          // Ghi chú khách hàng
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
   teams            Team[]
   users            User[]
@@ -34,6 +45,7 @@ model Organization {
   campaignGroups   CampaignGroup[]
   campaigns        Campaign[]
   teamKnowledge    TeamKnowledge[]
+  subscriptionLogs SubscriptionLog[]
 
   @@map("organizations")
 }
@@ -554,4 +566,35 @@ model CampaignQueue {
   @@index([campaignId, status])
   @@index([campaignId, chunkIndex])
   @@map("campaign_queue")
+}
+
+// ── Multi-Tenant SaaS Models ────────────────────────────────────────────────
+
+// Platform super admin — manages all tenants (separate from org users)
+model PlatformAdmin {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  fullName     String   @map("full_name")
+  role         String   @default("superadmin") // superadmin | support
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("platform_admins")
+}
+
+// Subscription history log per tenant
+model SubscriptionLog {
+  id        String   @id @default(uuid())
+  orgId     String   @map("org_id")
+  action    String   // created | upgraded | downgraded | renewed | suspended | activated | expired
+  plan      String   // plan at the time of action
+  note      String?  // admin note
+  createdBy String?  @map("created_by") // platform admin id
+  createdAt DateTime @default(now()) @map("created_at")
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, createdAt])
+  @@map("subscription_logs")
 }

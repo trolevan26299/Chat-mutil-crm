@@ -9,6 +9,7 @@ import { authMiddleware } from './auth-middleware.js';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
 import { logger } from '../../shared/utils/logger.js';
+import { checkUserLimit } from '../platform/tenant-limits.js';
 
 export async function userRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authMiddleware);
@@ -34,7 +35,7 @@ export async function userRoutes(app: FastifyInstance) {
   });
 
   // POST /api/v1/users — create user (owner/admin only)
-  app.post('/api/v1/users', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/api/v1/users', { preHandler: checkUserLimit }, async (request: FastifyRequest, reply: FastifyReply) => {
     const currentUser = request.user!;
     if (!['owner', 'admin'].includes(currentUser.role)) {
       return reply.status(403).send({ error: 'Không có quyền' });

@@ -12,6 +12,23 @@ import {
 } from './auth-service.js';
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
+  // GET /api/v1/tenant/info — public, returns tenant branding from subdomain
+  app.get('/api/v1/tenant/info', async (request) => {
+    const tenantOrg = (request as any).tenantOrg;
+    if (!tenantOrg) {
+      return { tenant: null };
+    }
+    return {
+      tenant: {
+        name: tenantOrg.name,
+        slug: tenantOrg.slug,
+        logoUrl: tenantOrg.logoUrl,
+        primaryColor: tenantOrg.primaryColor,
+        status: tenantOrg.status,
+      },
+    };
+  });
+
   // GET /api/v1/setup/status — check if first-run setup is needed
   app.get('/api/v1/setup/status', async () => {
     return checkSetupStatus();

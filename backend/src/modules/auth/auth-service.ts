@@ -36,7 +36,21 @@ export async function setup(
   const passwordHash = await bcrypt.hash(password, 12);
 
   const result = await prisma.$transaction(async (tx) => {
-    const org = await tx.organization.create({ data: { name: orgName } });
+    // Generate a URL-safe slug from the org name
+    const slug = orgName
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove diacritics
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 48) || 'org';
+
+    // Ensure slug uniqueness
+    const existingSlug = await tx.organization.findUnique({ where: { slug } });
+    const finalSlug = existingSlug ? `${slug}-${Date.now().toString(36)}` : slug;
+
+    const org = await tx.organization.create({
+      data: { name: orgName, slug: finalSlug },
+    });
     const user = await tx.user.create({
       data: {
         orgId: org.id,
@@ -63,11 +77,24 @@ export async function setup(
 export async function login(email: string, password: string): Promise<JwtPayload> {
   const user = await prisma.user.findUnique({
     where: { email: email.toLowerCase().trim() },
+    include: { org: { select: { status: true, expiresAt: true } } },
   });
 
   if (!user || !user.isActive) {
     const err = new Error('Invalid email or password') as Error & { statusCode: number };
     err.statusCode = 401;
+    throw err;
+  }
+
+  // Check org status (multi-tenant)
+  if (user.org.status === 'suspended') {
+    const err = new Error('Tài khoản tổ chức đã bị tạm ngưng. Vui lòng liên hệ quản trị viên.') as Error & { statusCode: number };
+    err.statusCode = 403;
+    throw err;
+  }
+  if (user.org.status === 'expired' || (user.org.expiresAt && new Date() > user.org.expiresAt)) {
+    const err = new Error('Tài khoản tổ chức đã hết hạn. Vui lòng liên hệ để gia hạn.') as Error & { statusCode: number };
+    err.statusCode = 403;
     throw err;
   }
 
@@ -94,7 +121,7 @@ export async function getProfile(userId: string) {
       teamId: true,
       isActive: true,
       createdAt: true,
-      org: { select: { id: true, name: true } },
+      org: { select: { id: true, name: true, slug: true, plan: true, status: true, aiEnabled: true, logoUrl: true, primaryColor: true } },
     },
   });
 

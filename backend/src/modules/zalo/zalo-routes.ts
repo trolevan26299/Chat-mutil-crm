@@ -1,11 +1,8 @@
-/**
- * Zalo account management routes.
- * All endpoints require authentication via authMiddleware.
- */
 import type { FastifyInstance } from 'fastify';
 import { authMiddleware } from '../auth/auth-middleware.js';
 import { zaloPool } from './zalo-pool.js';
 import { prisma } from '../../shared/database/prisma-client.js';
+import { checkZaloLimit } from '../platform/tenant-limits.js';
 
 export async function zaloRoutes(app: FastifyInstance): Promise<void> {
   // All routes in this plugin require auth
@@ -43,6 +40,7 @@ export async function zaloRoutes(app: FastifyInstance): Promise<void> {
   // POST /api/v1/zalo-accounts — create a new account record
   app.post<{ Body: { displayName?: string; proxyUrl?: string } }>(
     '/api/v1/zalo-accounts',
+    { preHandler: checkZaloLimit },
     async (request, reply) => {
       const user = request.user!;
       const { displayName, proxyUrl } = request.body ?? {};

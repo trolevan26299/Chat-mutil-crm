@@ -6,15 +6,21 @@
       <div class="logo-wrap mx-auto mb-5">
         <div class="logo-ring" />
         <div class="logo-orb d-flex align-center justify-center">
-          <v-icon size="28" color="white">mdi-message-text</v-icon>
+          <v-avatar v-if="authStore.tenantInfo?.logoUrl" :image="authStore.tenantInfo.logoUrl" size="40" />
+          <v-icon v-else size="28" color="white">mdi-message-text</v-icon>
         </div>
       </div>
 
       <h1 class="brand-name mb-1">
-        Zalo<span class="brand-accent">CRM</span>
+        <template v-if="authStore.tenantInfo?.name">
+          {{ authStore.tenantInfo.name }}
+        </template>
+        <template v-else>
+          Chat<span class="brand-accent">CRM</span>
+        </template>
       </h1>
       <p class="text-caption brand-sub">
-        Multi-Account Zalo Management Platform
+        {{ authStore.tenantInfo ? authStore.tenantInfo.name + ' — Quản lý Zalo' : 'Multi-Account Zalo Management Platform' }}
       </p>
     </div>
 
@@ -83,6 +89,9 @@ const router = useRouter();
 const authStore = useAuthStore();
 
 onMounted(async () => {
+  // Fetch tenant branding for subdomain login page
+  authStore.fetchTenantInfo();
+
   try {
     const needs = await authStore.checkSetup();
     if (needs) router.replace('/setup');

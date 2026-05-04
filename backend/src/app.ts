@@ -47,11 +47,35 @@ import { aiRoutes } from './modules/ai/ai-routes.js';
 import { campaignRoutes } from './modules/campaign/campaign-routes.js';
 import { startCampaignScheduler } from './modules/campaign/campaign-scheduler.js';
 import { knowledgeRoutes } from './modules/knowledge/knowledge-routes.js';
+import { tenantResolver } from './modules/platform/tenant-resolver.js';
+import { platformRoutes } from './modules/platform/platform-routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function bootstrap() {
-  const app = Fastify({ logger: false, bodyLimit: 50 * 1024 * 1024 }); // 50MB limit for image/file uploads
+  const app = Fastify({ 
+    logger: false, 
+    bodyLimit: 50 * 1024 * 1024,
+    rewriteUrl: (req) => {
+      // Don't touch API routes
+      if (!req.url || req.url.startsWith('/api/')) return req.url || '/';
+      
+      const host = req.headers.host || '';
+      const isDevSubdomain = host.startsWith('admin.localhost');
+      const isProdSubdomain = host.startsWith('admin.');
+      
+      // If it's the admin subdomain, rewrite URL to point to /admin-static/ prefix
+      if (isDevSubdomain || isProdSubdomain) {
+        // Map SPA routes to index.html
+        if (req.url === '/' || !req.url.includes('.')) {
+          return '/admin-static/index.html';
+        }
+        return `/admin-static${req.url}`;
+      }
+      
+      return req.url;
+    }
+  }); // 50MB limit for image/file uploads
 
   // Multipart plugin for file uploads (PDF knowledge base)
   const fastifyMultipart = (await import('@fastify/multipart')).default;
@@ -77,9 +101,17 @@ async function bootstrap() {
 
   // Serve compiled frontend assets in production
   if (config.isProduction) {
+    // 1. Register fastify-static for tenant frontend
     await app.register(fastifyStatic, {
       root: path.join(__dirname, '../static'),
       prefix: '/',
+    });
+
+    // 2. Register fastify-static for admin frontend with prefix /admin-static
+    await app.register(fastifyStatic, {
+      root: path.join(__dirname, '../static-admin'),
+      prefix: '/admin-static/',
+      decorateReply: false,
     });
   }
 
@@ -110,6 +142,12 @@ async function bootstrap() {
 
   // ── Routes ────────────────────────────────────────────────────────────────
 
+  // Tenant resolution: subdomain → orgId (runs before all route handlers)
+  app.addHook('preHandler', tenantResolver);
+
+  // Platform admin routes (super admin — separate from tenant routes)
+  await app.register(platformRoutes);
+
   await app.register(authRoutes);
   await app.register(zaloRoutes);
   await app.register(chatRoutes);
@@ -137,7 +175,7 @@ async function bootstrap() {
   await app.register(knowledgeRoutes);
 
   // ── Public sticker image proxy (no auth needed — browser img tag) ──────────
-  app.get('/api/v1/sticker-image', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/api/v1/sticker-image', async (request, reply) => {
     const { eid, size } = request.query as { eid?: string; size?: string };
     if (!eid) return reply.status(400).send({ error: 'Missing eid' });
     const url = `https://zalo-api.zadn.vn/api/emoticon/sticker/webpc?eid=${eid}&size=${size || 130}`;
@@ -178,11 +216,15 @@ async function bootstrap() {
 
   // SPA fallback — serve index.html for non-API routes in production
   if (config.isProduction) {
-    app.setNotFoundHandler(async (request, reply) => {
+    app.setNotFoundHandler((request, reply) => {
       if (request.url.startsWith('/api/')) {
-        return reply.status(404).send({ error: 'not_found' });
+        reply.status(404).send({ error: 'not_found' });
+        return;
       }
-      return reply.sendFile('index.html');
+      
+      // Due to rewriteUrl, admin SPA fallback is handled!
+      // This is for the main tenant app fallback.
+      reply.sendFile('index.html');
     });
   }
 
@@ -210,13 +252,16 @@ async function bootstrap() {
     process.exit(1);
   }
 
-  // Reconnect Zalo accounts that have saved sessions
+  // Reconnect Zalo accounts that have saved sessions (only for active orgs)
   try {
     const accounts = await prisma.zaloAccount.findMany({
-      where: { sessionData: { not: Prisma.JsonNull } },
+      where: {
+        sessionData: { not: Prisma.JsonNull },
+        org: { status: 'active' },
+      },
       select: { id: true, sessionData: true },
     });
-    logger.info(`Attempting reconnect for ${accounts.length} Zalo account(s)`);
+    logger.info(`Attempting reconnect for ${accounts.length} Zalo account(s) from active orgs`);
     for (const account of accounts) {
       const session = account.sessionData as {
         cookie: any;
