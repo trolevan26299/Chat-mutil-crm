@@ -7,7 +7,7 @@
         :selected-id="selectedConvId"
         :loading="loadingConvs"
         v-model:search="searchQuery"
-        @select="selectConversation"
+        @select="handleSelectConversation"
         @filter-account="onFilterAccount"
       />
     </div>
@@ -58,7 +58,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import ConversationList from '@/components/chat/ConversationList.vue';
 import MessageThread from '@/components/chat/MessageThread.vue';
 import ChatContactPanel from '@/components/chat/ChatContactPanel.vue';
@@ -66,6 +66,7 @@ import { useChat } from '@/composables/use-chat';
 import { useOfflineQueue } from '@/composables/use-offline-queue';
 
 const route = useRoute();
+const router = useRouter();
 const {
   conversations, selectedConvId, selectedConv, messages,
   loadingConvs, loadingMsgs, sendingMsg, searchQuery, accountFilter,
@@ -84,8 +85,16 @@ function onFilterAccount(id: string | null) {
   fetchConversations();
 }
 
+function handleSelectConversation(id: string) {
+  if (id !== selectedConvId.value) {
+    selectConversation(id);
+    router.push({ query: { convId: id } });
+  }
+}
+
 function goBack() {
   selectedConvId.value = null;
+  router.push({ query: {} });
 }
 
 // Merge real messages with pending offline messages
@@ -132,7 +141,7 @@ onMounted(async () => {
 });
 
 watch(() => route.query.convId, (newId) => {
-  if (newId) selectConversation(newId as string);
+  if (newId && newId !== selectedConvId.value) selectConversation(newId as string);
 });
 
 onUnmounted(() => {

@@ -80,6 +80,7 @@ export function useChat() {
   const aiUsage = ref({ usedToday: 0, maxDaily: 500, remaining: 500, enabled: true, costDaily: 0, costMonthly: 0, chartData: [0, 0, 0, 0, 0, 0, 0] });
   const aiConfig = ref<AiConfig>({ model: 'google/gemini-2.0-flash-001', maxDaily: 500, enabled: true, hasKey: false, availableModels: [] });
   let socket: Socket | null = null;
+  let fetchTimeout: ReturnType<typeof setTimeout> | null = null;
 
   const selectedConv = computed(() =>
     conversations.value.find(c => c.id === selectedConvId.value) || null,
@@ -286,7 +287,11 @@ export function useChat() {
           messages.value.push(data.message);
         }
       }
-      fetchConversations();
+      // Debounce fetchConversations to prevent API spam (e.g. Zalo fires multiple events for 1 message)
+      if (fetchTimeout) clearTimeout(fetchTimeout);
+      fetchTimeout = setTimeout(() => {
+        fetchConversations();
+      }, 300);
     });
 
     socket.on('chat:deleted', (data: { msgId: string }) => {

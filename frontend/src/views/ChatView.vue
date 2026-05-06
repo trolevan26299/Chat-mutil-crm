@@ -79,8 +79,10 @@ const {
 const router = useRouter();
 
 function handleSelectConversation(id: string) {
-  selectConversation(id);
-  router.push({ query: { convId: id } });
+  if (id !== selectedConvId.value) {
+    selectConversation(id);
+    router.push({ query: { convId: id } });
+  }
 }
 
 function onFilterAccount(id: string | null) {
@@ -151,7 +153,7 @@ onMounted(async () => {
   }
 });
 watch(() => route.query.convId, (newId) => {
-  if (newId) selectConversation(newId as string);
+  if (newId && newId !== selectedConvId.value) selectConversation(newId as string);
 });
 onUnmounted(() => {
   if (!isMobile.value) { destroySocket(); }
