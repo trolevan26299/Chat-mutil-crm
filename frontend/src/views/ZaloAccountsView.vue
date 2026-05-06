@@ -1,12 +1,12 @@
 <template>
-  <div>
-    <div class="d-flex align-center mb-4">
+  <div class="zalo-accounts-page d-flex flex-column">
+    <div class="d-flex align-center mb-4 flex-shrink-0">
       <h1 class="text-h4">Tài khoản Zalo</h1>
       <v-spacer />
       <v-btn color="primary" prepend-icon="mdi-plus" @click="showAddDialog = true">Thêm Zalo</v-btn>
     </div>
 
-    <div v-if="isMobile" class="d-flex flex-column gap-3 mb-4">
+    <div v-if="isMobile" class="d-flex flex-column gap-3 mb-4 flex-grow-1 overflow-y-auto pr-2">
       <v-card v-for="item in accounts" :key="item.id" class="pa-4" elevation="0" border>
         <div class="d-flex align-center justify-space-between mb-2">
           <div class="font-weight-bold text-body-1 text-truncate" style="max-width: 60%">{{ item.displayName || item.id }}</div>
@@ -28,8 +28,8 @@
       <div v-if="!accounts.length" class="text-center pa-6 text-grey">Chưa có tài khoản Zalo nào</div>
     </div>
 
-    <v-card v-else>
-      <v-data-table :headers="headers" :items="accounts" :loading="loading" no-data-text="Chưa có tài khoản Zalo nào" fixed-header height="calc(100vh - 160px)">
+    <v-card v-else class="flex-grow-1 d-flex flex-column overflow-hidden">
+      <v-data-table class="accounts-table flex-grow-1" :headers="headers" :items="accounts" :loading="loading" no-data-text="Chưa có tài khoản Zalo nào" fixed-header>
         <template #item.status="{ item }">
           <v-chip :color="statusColor(item.liveStatus || item.status)" size="small" variant="flat">
             {{ statusText(item.liveStatus || item.status) }}
@@ -299,3 +299,25 @@ onMounted(() => {
   setupSocket();
 });
 </script>
+
+<style scoped>
+.zalo-accounts-page {
+  height: calc(100vh - 64px - 32px); /* 64px appbar + 32px container padding */
+  overflow: hidden;
+}
+
+.zalo-accounts-page > .v-card {
+  overflow: hidden;
+}
+
+:deep(.accounts-table .v-table__wrapper) {
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+:deep(.accounts-table) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+</style>

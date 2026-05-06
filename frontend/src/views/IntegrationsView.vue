@@ -87,22 +87,34 @@
 
           <!-- Type-specific config fields -->
           <template v-if="form.type === 'google_sheets'">
+            <v-alert type="info" variant="tonal" class="mb-4 text-caption" density="compact">
+              <strong>Xuất dữ liệu (Export):</strong> Tự động đồng bộ lên tới 5000 Khách hàng mới nhất sang file Google Sheets (Họ tên, SĐT, Nguồn, Trạng thái...).
+            </v-alert>
             <v-text-field v-model="form.config.spreadsheetId" label="Spreadsheet ID *" class="mb-2" />
             <v-text-field v-model="form.config.apiKey" label="API Key *" type="password" class="mb-2" />
             <v-text-field v-model="form.config.sheetName" label="Tên sheet" placeholder="Contacts" />
           </template>
 
           <template v-if="form.type === 'telegram'">
+            <v-alert type="info" variant="tonal" class="mb-4 text-caption" density="compact">
+              <strong>Xuất dữ liệu (Export):</strong> Tự động gửi tin nhắn tóm tắt tình hình kinh doanh (Số Khách mới, Số Tin nhắn, Số Lịch hẹn) vào nhóm chat Telegram mỗi ngày lúc 0:00.
+            </v-alert>
             <v-text-field v-model="form.config.botToken" label="Bot Token *" type="password" class="mb-2" />
             <v-text-field v-model="form.config.chatId" label="Chat ID *" class="mb-2" />
           </template>
 
           <template v-if="form.type === 'facebook'">
+            <v-alert type="info" variant="tonal" class="mb-4 text-caption" density="compact">
+              <strong>Nhập dữ liệu (Import):</strong> Kết nối với Fanpage để tự động quét 100 người nhắn tin gần nhất và lưu thành Khách hàng mới trong Zalo CRM.
+            </v-alert>
             <v-text-field v-model="form.config.pageId" label="Page ID *" class="mb-2" />
             <v-text-field v-model="form.config.pageAccessToken" label="Page Access Token *" type="password" />
           </template>
 
           <template v-if="form.type === 'zapier'">
+            <v-alert type="info" variant="tonal" class="mb-4 text-caption" density="compact">
+              <strong>Xuất dữ liệu (Export):</strong> Đóng gói danh sách Khách hàng mới tạo trong 24 giờ qua và gửi POST Request (JSON) sang Zapier Webhook.
+            </v-alert>
             <v-text-field v-model="form.config.webhookUrl" label="Webhook URL *" placeholder="https://hooks.zapier.com/..." />
           </template>
 

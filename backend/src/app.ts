@@ -9,6 +9,8 @@ import fastifyJwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import { Server } from 'socket.io';
+import { createClient } from 'redis';
+import { createAdapter } from '@socket.io/redis-adapter';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -117,12 +119,38 @@ async function bootstrap() {
 
   // ── Socket.IO ─────────────────────────────────────────────────────────────
 
+  // Allowed origins: localhost (dev) + tất cả subdomain của domain production
+  const allowedOrigin = (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    if (!origin) return callback(null, true); // server-to-server, allow
+    if (!config.isProduction) return callback(null, true); // dev: allow all
+    // Cho phép chatcrm.org và *.chatcrm.org (mọi tenant subdomain)
+    const prodDomain = config.appUrl.replace(/^https?:\/\//, '').split('/')[0];
+    const baseDomain = prodDomain.includes('.') ? prodDomain.split('.').slice(-2).join('.') : prodDomain;
+    const isAllowed = origin === `https://${baseDomain}` || origin.endsWith(`.${baseDomain}`);
+    return callback(isAllowed ? null : new Error('CORS not allowed'), isAllowed);
+  };
+
   const io = new Server(app.server, {
-    cors: {
-      origin: config.isProduction ? config.appUrl : '*',
-      credentials: true,
-    },
+    cors: { origin: allowedOrigin, credentials: true },
+    // Giữ connection qua Cloudflare (Cloudflare drop idle WS sau 100s)
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    upgradeTimeout: 30000,
+    transports: ['websocket', 'polling'],
+    path: '/socket.io/',
   });
+
+  // ── Redis Adapter — bắt buộc để sync events giữa nhiều ECS tasks ──────────
+  // API container và Worker container dùng chung Redis → event lan ra đúng client
+  try {
+    const pubClient = createClient({ url: config.redisUrl });
+    const subClient = pubClient.duplicate();
+    await Promise.all([pubClient.connect(), subClient.connect()]);
+    io.adapter(createAdapter(pubClient, subClient));
+    logger.info('[socket.io] Redis adapter connected — multi-instance sync enabled');
+  } catch (err) {
+    logger.error('[socket.io] Redis adapter FAILED — falling back to in-memory (single instance only):', err);
+  }
 
   // Attach io to app so route handlers can emit events
   app.decorate('io', io);
@@ -239,43 +267,54 @@ async function bootstrap() {
 
   // ── Start ─────────────────────────────────────────────────────────────────
 
+  const isWorkerMode = process.env.WORKER_MODE === 'true';
+  logger.info(`Mode: ${isWorkerMode ? 'WORKER (ZaloPool + Schedulers)' : 'API only'}`);
+
   try {
     await app.listen({ port: config.port, host: config.host });
     logger.info(`Zalo CRM running on http://${config.host}:${config.port}`);
     logger.info(`Environment: ${config.nodeEnv}`);
-    startAppointmentReminder(io);
-    startZaloHealthCheck();
-    startContactIntelligence();
-    startCampaignScheduler();
+
+    // Schedulers & ZaloPool chỉ chạy trên WORKER container
+    // API container (scale tự do) KHÔNG chạy những thứ này
+    if (isWorkerMode) {
+      logger.info('[worker] Starting background workers...');
+      startAppointmentReminder(io);
+      startZaloHealthCheck();
+      startContactIntelligence();
+      startCampaignScheduler();
+
+      // Reconnect Zalo accounts that have saved sessions (only for active orgs)
+      try {
+        const accounts = await prisma.zaloAccount.findMany({
+          where: {
+            sessionData: { not: Prisma.JsonNull },
+            org: { status: 'active' },
+          },
+          select: { id: true, sessionData: true },
+        });
+        logger.info(`[worker] Attempting reconnect for ${accounts.length} Zalo account(s)`);
+        for (const account of accounts) {
+          const session = account.sessionData as {
+            cookie: any;
+            imei: string;
+            userAgent: string;
+          } | null;
+          if (session?.imei) {
+            zaloPool.reconnect(account.id, session).catch((err) => {
+              logger.warn(`Auto-reconnect failed for account ${account.id}:`, err);
+            });
+          }
+        }
+      } catch (err) {
+        logger.error('[worker] Failed to load accounts for reconnect:', err);
+      }
+    } else {
+      logger.info('[api] Running in API-only mode — ZaloPool & schedulers are on worker container');
+    }
   } catch (err) {
     logger.error('Failed to start server:', err);
     process.exit(1);
-  }
-
-  // Reconnect Zalo accounts that have saved sessions (only for active orgs)
-  try {
-    const accounts = await prisma.zaloAccount.findMany({
-      where: {
-        sessionData: { not: Prisma.JsonNull },
-        org: { status: 'active' },
-      },
-      select: { id: true, sessionData: true },
-    });
-    logger.info(`Attempting reconnect for ${accounts.length} Zalo account(s) from active orgs`);
-    for (const account of accounts) {
-      const session = account.sessionData as {
-        cookie: any;
-        imei: string;
-        userAgent: string;
-      } | null;
-      if (session?.imei) {
-        zaloPool.reconnect(account.id, session).catch((err) => {
-          logger.warn(`Auto-reconnect failed for account ${account.id}:`, err);
-        });
-      }
-    }
-  } catch (err) {
-    logger.error('Failed to load accounts for reconnect:', err);
   }
 }
 
@@ -286,5 +325,37 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason) => {
   logger.error('Unhandled Rejection:', reason);
 });
+
+// ── Graceful Shutdown ────────────────────────────────────────────────────────
+// ECS gửi SIGTERM khi rolling deploy hoặc scale-in.
+// Tini (PID 1 trong Docker) sẽ forward SIGTERM về đây.
+// Cho phép request đang xử lý hoàn tất trước khi đóng.
+let appInstance: Awaited<ReturnType<typeof Fastify>> | null = null;
+
+async function gracefulShutdown(signal: string) {
+  logger.info(`[shutdown] Received ${signal} — starting graceful shutdown...`);
+  try {
+    // 1. Ngừng nhận request mới (Fastify close)
+    if (appInstance) await appInstance.close();
+
+    // 2. Ngắt kết nối Zalo (chỉ trên worker)
+    if (process.env.WORKER_MODE === 'true') {
+      logger.info('[shutdown] Disconnecting ZaloPool...');
+      zaloPool.disconnectAll?.();
+    }
+
+    // 3. Đóng DB connection pool
+    await prisma.$disconnect();
+
+    logger.info('[shutdown] Done. Process exiting.');
+    process.exit(0);
+  } catch (err) {
+    logger.error('[shutdown] Error during shutdown:', err);
+    process.exit(1);
+  }
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
 
 bootstrap();

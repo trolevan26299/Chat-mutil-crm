@@ -7,6 +7,7 @@ import { prisma } from '../../shared/database/prisma-client.js';
 import { authMiddleware } from '../auth/auth-middleware.js';
 import { requireRole } from '../auth/role-middleware.js';
 import { zaloPool } from './zalo-pool.js';
+import { proxyPostToWorker } from './zalo-pool-proxy.js';
 import { logger } from '../../shared/utils/logger.js';
 import { randomUUID } from 'node:crypto';
 
@@ -20,7 +21,13 @@ export async function zaloSyncRoutes(app: FastifyInstance) {
       const { id } = request.params as { id: string };
 
       const instance = zaloPool.getInstance(id);
-      if (!instance?.api) return reply.status(400).send({ error: 'Zalo account not connected' });
+      if (!instance?.api) {
+        // Proxy to worker
+        const token = (request.headers.authorization || '').replace('Bearer ', '');
+        const result = await proxyPostToWorker(`/api/v1/zalo-accounts/${id}/sync-contacts`, {}, token);
+        if (!result.success) return reply.status(result.statusCode || 502).send({ error: result.error });
+        return result.data;
+      }
 
       try {
         const result = await instance.api.getAllFriends();

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { authMiddleware } from '../auth/auth-middleware.js';
 import { zaloPool } from './zalo-pool.js';
+import { proxyPostToWorker, isZaloPoolLocal } from './zalo-pool-proxy.js';
 import { prisma } from '../../shared/database/prisma-client.js';
 import { checkZaloLimit } from '../platform/tenant-limits.js';
 
@@ -28,10 +29,10 @@ export async function zaloRoutes(app: FastifyInstance): Promise<void> {
       orderBy: { createdAt: 'asc' },
     });
 
-    // Merge live status from pool
+    // Merge live status from pool (Worker) or from DB (API container)
     return accounts.map((a) => ({
       ...a,
-      liveStatus: zaloPool.getStatus(a.id),
+      liveStatus: isZaloPoolLocal() ? zaloPool.getStatus(a.id) : a.status,
       // Mask password in proxy URL for safety
       proxyUrl: a.proxyUrl ? a.proxyUrl.replace(/:[^:@]+@/, ':***@') : null,
     }));
@@ -74,9 +75,11 @@ export async function zaloRoutes(app: FastifyInstance): Promise<void> {
       }
 
       // Fire-and-forget — QR delivered via Socket.IO
-      zaloPool.loginQR(id).catch(() => {
-        // errors are emitted via socket; no need to crash here
-      });
+      if (isZaloPoolLocal()) {
+        zaloPool.loginQR(id).catch(() => {});
+      } else {
+        proxyPostToWorker(`/api/v1/zalo-accounts/${id}/login`, {}, (request.headers.authorization || '').replace('Bearer ', '')).catch(() => {});
+      }
 
       return { message: 'QR login initiated — subscribe to account:' + id + ' socket room' };
     },
@@ -107,7 +110,11 @@ export async function zaloRoutes(app: FastifyInstance): Promise<void> {
       }
 
       // Fire-and-forget — result emitted via Socket.IO
-      zaloPool.reconnect(id, session).catch(() => {});
+      if (isZaloPoolLocal()) {
+        zaloPool.reconnect(id, session).catch(() => {});
+      } else {
+        proxyPostToWorker(`/api/v1/zalo-accounts/${id}/reconnect`, {}, (request.headers.authorization || '').replace('Bearer ', '')).catch(() => {});
+      }
 
       return { message: 'Reconnect initiated' };
     },
@@ -149,7 +156,10 @@ export async function zaloRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(404).send({ error: 'Account not found' });
       }
 
-      return { accountId: id, liveStatus: zaloPool.getStatus(id) };
+      return {
+        accountId: id,
+        liveStatus: isZaloPoolLocal() ? zaloPool.getStatus(id) : account.status,
+      };
     },
   );
 

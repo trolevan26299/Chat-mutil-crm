@@ -1,11 +1,11 @@
 <template>
-  <div>
-    <h1 class="text-h4 mb-4">
+  <div class="settings-page d-flex flex-column">
+    <h1 class="text-h4 mb-4 flex-shrink-0">
       <v-icon class="mr-2" color="primary">mdi-cog-outline</v-icon>
       Cài đặt
     </h1>
 
-    <v-tabs v-model="tab" class="mb-4">
+    <v-tabs v-model="tab" class="mb-4 flex-shrink-0">
       <v-tab value="users">Nhân viên</v-tab>
       <v-tab value="teams">Đội nhóm</v-tab>
       <v-tab value="org">Tổ chức</v-tab>
@@ -15,20 +15,21 @@
       </v-tab>
     </v-tabs>
 
-    <v-window v-model="tab">
+    <v-window v-model="tab" class="flex-grow-1 d-flex flex-column overflow-hidden">
       <!-- Tab 1: User management -->
-      <v-window-item value="users">
-        <div class="d-flex align-center mb-4">
-          <v-btn v-if="authStore.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openCreate">
-            Thêm nhân viên
-          </v-btn>
-        </div>
+      <v-window-item value="users" class="h-100">
+        <div class="users-tab-content d-flex flex-column h-100">
+          <div class="d-flex align-center mb-4 flex-shrink-0">
+            <v-btn v-if="authStore.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openCreate">
+              Thêm nhân viên
+            </v-btn>
+          </div>
 
         <v-alert v-if="error" type="error" variant="tonal" class="mb-4" closable @click:close="error = ''">
           {{ error }}
         </v-alert>
 
-        <div v-if="isMobile" class="d-flex flex-column gap-3 mb-4">
+        <div v-if="isMobile" class="d-flex flex-column gap-3 mb-4 flex-grow-1 overflow-y-auto pr-2">
           <v-card v-for="item in users" :key="item.id" class="pa-4" elevation="0" border>
             <div class="d-flex align-center justify-space-between mb-2">
               <div class="font-weight-bold text-truncate" style="max-width: 65%;">{{ item.fullName || 'Người dùng' }}</div>
@@ -49,8 +50,8 @@
           <div v-if="!users.length" class="text-center pa-6 text-grey">Chưa có nhân viên nào</div>
         </div>
 
-        <v-card v-else elevation="0" border>
-          <v-data-table :headers="headers" :items="users" :loading="loading" no-data-text="Chưa có nhân viên nào" fixed-header height="calc(100vh - 240px)">
+        <v-card v-else elevation="0" border class="users-card flex-grow-1 d-flex flex-column overflow-hidden">
+          <v-data-table class="settings-table flex-grow-1" :headers="headers" :items="users" :loading="loading" no-data-text="Chưa có nhân viên nào" fixed-header>
             <template #item.role="{ item }">
               <v-chip :color="roleColor(item.role)" size="small" variant="flat">{{ roleLabel(item.role) }}</v-chip>
             </template>
@@ -138,6 +139,7 @@
             </v-card-actions>
           </v-card>
         </v-dialog>
+        </div>
       </v-window-item>
 
       <!-- Tab 2: Team management -->
@@ -557,3 +559,52 @@ watch(tab, async (val) => {
 
 onMounted(fetchUsers);
 </script>
+
+<style scoped>
+.settings-page {
+  height: calc(100vh - 64px - 32px); /* 64px appbar + 32px container padding */
+  overflow: hidden;
+}
+
+:deep(.v-window) {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.v-window__container) {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.v-window-item) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto; /* Cho phép các tab khác scroll bình thường */
+}
+
+/* Riêng tab Users sẽ flex để table fill full */
+.users-tab-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.users-card {
+  overflow: hidden;
+}
+
+:deep(.settings-table .v-table__wrapper) {
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+:deep(.settings-table) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+</style>

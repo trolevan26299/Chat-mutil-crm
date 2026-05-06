@@ -1,11 +1,12 @@
 version: "3.8"
 
 services:
-  app:
+  # ── API Server (stateless — có thể scale ngang) ─────────────────────────────
+  api:
     build:
       context: .
       dockerfile: docker/Dockerfile
-    container_name: zalo-crm-app
+    container_name: zalo-crm-api
     restart: unless-stopped
     ports:
       - "3002:3000"
@@ -15,6 +16,33 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - TZ=Asia/Ho_Chi_Minh
+      - WORKER_MODE=false
+      - DATABASE_URL=postgresql://${DB_USER:-crmuser}:${DB_PASSWORD}@db:5432/${DB_NAME:-zalocrm}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  # ── Worker (stateful — ZaloPool + BullMQ — KHÔNG scale) ──────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: zalo-crm-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - TZ=Asia/Ho_Chi_Minh
+      - WORKER_MODE=true
       - DATABASE_URL=postgresql://${DB_USER:-crmuser}:${DB_PASSWORD}@db:5432/${DB_NAME:-zalocrm}
       - REDIS_URL=redis://redis:6379
     depends_on:

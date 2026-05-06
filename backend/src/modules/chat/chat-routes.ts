@@ -7,6 +7,7 @@ import { prisma } from '../../shared/database/prisma-client.js';
 import { authMiddleware } from '../auth/auth-middleware.js';
 import { requireZaloAccess } from '../zalo/zalo-access-middleware.js';
 import { zaloPool } from '../zalo/zalo-pool.js';
+import { proxySendMessage, proxyPostToWorker, proxyGetToWorker, isZaloPoolLocal } from '../zalo/zalo-pool-proxy.js';
 import { zaloRateLimiter } from '../zalo/zalo-rate-limiter.js';
 import { logger } from '../../shared/utils/logger.js';
 import { randomUUID } from 'node:crypto';
@@ -271,7 +272,23 @@ export async function chatRoutes(app: FastifyInstance) {
     if (!conversation) return reply.status(404).send({ error: 'Conversation not found' });
 
     const instance = zaloPool.getInstance(conversation.zaloAccountId);
-    if (!instance?.api) return reply.status(400).send({ error: 'Zalo account not connected' });
+    if (!instance?.api) {
+      // API container has no ZaloPool — proxy to Worker
+      const token = (request.headers.authorization || '').replace('Bearer ', '');
+      const result = await proxySendMessage({
+        conversationId: id,
+        zaloAccountId: conversation.zaloAccountId,
+        threadId: conversation.externalThreadId || '',
+        threadType: conversation.threadType as 'user' | 'group',
+        content,
+        attachments,
+        sticker,
+        quote,
+        repliedByUserId: user.id,
+      }, token);
+      if (!result.success) return reply.status(result.statusCode || 502).send({ error: result.error });
+      return result.data;
+    }
 
     // Rate limit check — prevent account blocking
     const limits = zaloRateLimiter.checkLimits(conversation.zaloAccountId);
@@ -455,7 +472,13 @@ export async function chatRoutes(app: FastifyInstance) {
     if (!conversation) return reply.status(404).send({ error: 'Conversation not found' });
 
     const instance = zaloPool.getInstance(conversation.zaloAccountId);
-    if (!instance?.api) return reply.status(400).send({ error: 'Zalo account disconnected' });
+    if (!instance?.api) {
+      // Proxy to worker
+      const token = (request.headers.authorization || '').replace('Bearer ', '');
+      const result = await proxyGetToWorker(`/api/v1/conversations/${id}/proxy-file?url=${encodeURIComponent(url)}`, token);
+      if (!result.success) return reply.status(result.statusCode || 502).send({ error: result.error });
+      return result.data;
+    }
 
     try {
       const api = instance.api;
@@ -498,7 +521,12 @@ export async function chatRoutes(app: FastifyInstance) {
     if (!conversation) return reply.status(404).send({ error: 'Conversation not found' });
 
     const instance = zaloPool.getInstance(conversation.zaloAccountId);
-    if (!instance?.api) return reply.status(400).send({ error: 'Zalo account disconnected' });
+    if (!instance?.api) {
+      const token = (request.headers.authorization || '').replace('Bearer ', '');
+      const result = await proxyGetToWorker(`/api/v1/conversations/${id}/stickers/search?keyword=${encodeURIComponent(keyword?.trim() || 'hi')}`, token);
+      if (!result.success) return reply.status(result.statusCode || 502).send({ error: result.error });
+      return result.data;
+    }
 
     try {
       const q = keyword?.trim() || 'hi';
@@ -531,7 +559,12 @@ export async function chatRoutes(app: FastifyInstance) {
     }
 
     const instance = zaloPool.getInstance(conversation.zaloAccountId);
-    if (!instance?.api) return reply.status(400).send({ error: 'Zalo account not connected' });
+    if (!instance?.api) {
+      const token = (request.headers.authorization || '').replace('Bearer ', '');
+      const result = await proxyPostToWorker(`/api/v1/conversations/${id}/messages/${msgId}/reaction`, { icon }, token);
+      if (!result.success) return reply.status(result.statusCode || 502).send({ error: result.error });
+      return result.data;
+    }
 
     try {
       const threadId = conversation.externalThreadId || '';
@@ -575,7 +608,12 @@ export async function chatRoutes(app: FastifyInstance) {
     }
 
     const instance = zaloPool.getInstance(conversation.zaloAccountId);
-    if (!instance?.api) return reply.status(400).send({ error: 'Zalo account not connected' });
+    if (!instance?.api) {
+      const token = (request.headers.authorization || '').replace('Bearer ', '');
+      const result = await proxyPostToWorker(`/api/v1/conversations/${id}/messages/${msgId}/undo`, {}, token);
+      if (!result.success) return reply.status(result.statusCode || 502).send({ error: result.error });
+      return result.data;
+    }
 
     try {
       const threadId = conversation.externalThreadId || '';

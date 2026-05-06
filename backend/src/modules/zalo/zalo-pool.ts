@@ -353,6 +353,14 @@ class ZaloAccountPool {
     return this.instances.get(accountId);
   }
 
+  // Disconnect tất cả accounts — dùng khi graceful shutdown
+  disconnectAll(): void {
+    logger.info(`[zaloPool] Disconnecting all ${this.instances.size} account(s)...`);
+    for (const [accountId] of this.instances) {
+      this.disconnect(accountId);
+    }
+  }
+
   // Link orphaned conversations (contactId is null) to contacts via Zalo API
   private async backfillOrphanedConversations(accountId: string, api: any): Promise<void> {
     const account = await prisma.zaloAccount.findUnique({
